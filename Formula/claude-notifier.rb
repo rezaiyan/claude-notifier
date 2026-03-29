@@ -1,17 +1,13 @@
 class ClaudeNotifier < Formula
   desc "Desktop notifications for Claude Code — done and waiting alerts"
   homepage "https://github.com/rezaiyan/claude-notifier"
-  # Update url and sha256 on each release:
-  #   url "https://github.com/rezaiyan/claude-notifier/archive/refs/tags/v1.0.0.tar.gz"
-  #   sha256 "<run `brew fetch --build-from-source` to get this>"
+  url "https://github.com/rezaiyan/claude-notifier/archive/refs/tags/v0.0.0.tar.gz"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  version "0.0.0"
+  license "MIT"
   head "https://github.com/rezaiyan/claude-notifier.git", branch: "main"
 
-  license "MIT"
   depends_on :macos
-
-  # terminal-notifier is optional: the hook falls back to osascript without it
-  # but click-to-focus requires it.
-  # depends_on "terminal-notifier" => :optional
 
   def install
     libexec.install "claude-notifier.py"
