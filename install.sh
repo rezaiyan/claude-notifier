@@ -92,10 +92,13 @@ data["hooks"].setdefault("Stop", [{}])
 data["hooks"]["Stop"][0].setdefault("hooks", [])
 
 existing = data["hooks"]["Stop"][0]["hooks"]
-entry = {"type": "command", "command": hook_command}
+# Wrap with existence check so an orphaned entry (e.g. after `brew uninstall`)
+# fails silently instead of producing a Python error on every Claude stop.
+guarded_command = f"[ -f {sys.argv[2]} ] && {hook_command} || true"
+entry = {"type": "command", "command": guarded_command}
 
 # Idempotent: only add if not already present
-if not any(h.get("command") == hook_command for h in existing):
+if not any(h.get("command") == guarded_command for h in existing):
     existing.append(entry)
     settings_path.write_text(json.dumps(data, indent=2) + "\n")
     print(f"[claude-notifier] Registered Stop hook in {settings_path}")

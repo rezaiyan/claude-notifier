@@ -58,6 +58,20 @@ If you prefer not to use the installer:
 }
 ```
 
+## Uninstall
+
+```bash
+./uninstall.sh
+```
+
+Removes the script from `~/.claude/hooks/` and cleans up `settings.json`.
+
+> **Package managers (brew, apt, etc.)** do not touch `~/.claude/settings.json`.
+> Always run `uninstall.sh` before or after removing via a package manager,
+> otherwise the hook entry will remain. If the script is already gone the
+> registered command fails silently, so Claude Code won't break — but running
+> `uninstall.sh` is the clean way to remove it fully.
+
 ## Notes
 
 - **Wayland (Linux)**: focus detection is not supported — notifications always fire

@@ -29,7 +29,9 @@ patch_settings() {
 import json, sys, pathlib
 
 settings_path = pathlib.Path(sys.argv[1])
-hook_command  = f"python3 {sys.argv[2]}"
+hook_path     = sys.argv[2]
+hook_command  = f"python3 {hook_path}"
+guarded       = f"[ -f {hook_path} ] && {hook_command} || true"
 
 data = json.loads(settings_path.read_text())
 
@@ -39,7 +41,8 @@ changed = False
 for block in stop_blocks:
     hooks = block.get("hooks", [])
     before = len(hooks)
-    block["hooks"] = [h for h in hooks if h.get("command") != hook_command]
+    # Match both the guarded command (normal install) and the bare command (manual install)
+    block["hooks"] = [h for h in hooks if h.get("command") not in (hook_command, guarded)]
     if len(block["hooks"]) < before:
         changed = True
 
