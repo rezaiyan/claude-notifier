@@ -6,6 +6,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Homebrew caveats redesigned with a prominent box and clear setup instruction
+- `claude-notifier-setup` now prints the same colorful success box as `install.sh`
+
 ## [1.0.3] - 2026-03-29
 
 ### Fixed
