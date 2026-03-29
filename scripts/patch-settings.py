@@ -7,13 +7,28 @@ import json
 import sys
 from pathlib import Path
 
+if len(sys.argv) < 2:
+    print("Usage: patch-settings.py <path-to-claude-notifier.py>", file=sys.stderr)
+    sys.exit(1)
+
 hook_path = sys.argv[1]
 settings_path = Path.home() / ".claude" / "settings.json"
 
 hook_command = f"python3 {hook_path}"
 guarded = f"[ -f {hook_path} ] && {hook_command} || true"
 
-data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+try:
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+    if not isinstance(data, dict):
+        data = {}
+except json.JSONDecodeError:
+    print(
+        f"[claude-notifier] Warning: {settings_path} contains invalid JSON — creating backup and starting fresh.",
+        file=sys.stderr,
+    )
+    settings_path.rename(settings_path.with_suffix(".json.bak"))
+    data = {}
+
 data.setdefault("hooks", {}).setdefault("Stop", [{}])
 data["hooks"]["Stop"][0].setdefault("hooks", [])
 hooks = data["hooks"]["Stop"][0]["hooks"]

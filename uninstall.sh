@@ -2,7 +2,6 @@
 set -euo pipefail
 
 HOOK_DIR="$HOME/.claude/hooks"
-SETTINGS="$HOME/.claude/settings.json"
 SCRIPT_NAME="claude-notifier.py"
 HOOK_PATH="$HOOK_DIR/$SCRIPT_NAME"
 
@@ -26,7 +25,12 @@ patch_settings() {
 main() {
   info "Uninstalling claude-notifier…"
   remove_script
-  patch_settings
+  if command -v python3 &>/dev/null; then
+    patch_settings
+  else
+    warn "python3 not found — skipping settings.json cleanup."
+    warn "Remove the hook entry manually from ~/.claude/settings.json."
+  fi
   info "Done."
 }
 

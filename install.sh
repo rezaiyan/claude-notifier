@@ -2,7 +2,6 @@
 set -euo pipefail
 
 HOOK_DIR="$HOME/.claude/hooks"
-SETTINGS="$HOME/.claude/settings.json"
 SCRIPT_NAME="claude-notifier.py"
 SCRIPT_SRC="$(cd "$(dirname "$0")" && pwd)/$SCRIPT_NAME"
 
@@ -78,8 +77,15 @@ patch_settings() {
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+check_python3() {
+  if ! command -v python3 &>/dev/null; then
+    error "python3 is required but not found. Install it and re-run."
+  fi
+}
+
 main() {
   info "Starting installation…"
+  check_python3
   install_deps
   install_script
   patch_settings

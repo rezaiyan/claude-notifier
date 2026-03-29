@@ -191,7 +191,10 @@ def notify(title: str, message: str, subtitle: str) -> None:
 def main() -> None:
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, ValueError):
+        sys.exit(0)
+
+    if not isinstance(data, dict):
         sys.exit(0)
 
     if data.get("stop_hook_active") or is_terminal_focused():
