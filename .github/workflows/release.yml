@@ -41,11 +41,17 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          path: source
+
       - name: Checkout tap repo
         uses: actions/checkout@v4
         with:
           repository: rezaiyan/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
 
       - name: Compute tarball sha256
         id: tarball
@@ -56,8 +62,11 @@ jobs:
           echo "url=$url"       >> "$GITHUB_OUTPUT"
           echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
 
-      - name: Update formula
+      - name: Sync and update formula
         run: |
+          # Copy the full formula from source so structural changes are always reflected
+          cp source/Formula/claude-notifier.rb tap/Formula/claude-notifier.rb
+
           python3 - \
             "${{ github.ref_name }}" \
             "${{ steps.tarball.outputs.url }}" \
@@ -69,15 +78,16 @@ jobs:
           tag, url, sha256 = sys.argv[1], sys.argv[2], sys.argv[3]
           version = tag.lstrip("v")
 
-          path = Path("Formula/claude-notifier.rb")
+          path = Path("tap/Formula/claude-notifier.rb")
           content = path.read_text()
-          content = re.sub(r'url ".*"',     f'url "{url}"',       content)
-          content = re.sub(r'sha256 ".*"',  f'sha256 "{sha256}"', content)
+          content = re.sub(r'url ".*"',     f'url "{url}"',         content)
+          content = re.sub(r'sha256 ".*"',  f'sha256 "{sha256}"',   content)
           content = re.sub(r'version ".*"', f'version "{version}"', content)
           path.write_text(content)
           PYEOF
 
       - name: Commit and push
+        working-directory: tap
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
