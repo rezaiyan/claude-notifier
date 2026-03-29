@@ -6,7 +6,8 @@ SCRIPT_NAME="claude-notifier.py"
 SCRIPT_SRC="$(cd "$(dirname "$0")" && pwd)/$SCRIPT_NAME"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
+BOLD='\033[1m'; DIM='\033[2m'; CYAN='\033[0;36m'; NC='\033[0m'
 info()    { echo -e "${GREEN}[claude-notifier]${NC} $*"; }
 warn()    { echo -e "${YELLOW}[claude-notifier]${NC} $*"; }
 error()   { echo -e "${RED}[claude-notifier]${NC} $*" >&2; exit 1; }
@@ -83,13 +84,32 @@ check_python3() {
   fi
 }
 
+print_success() {
+  echo
+  echo -e "${BOLD}${GREEN}  ╭──────────────────────────────────────────────────────╮${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}                                                      ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}   ${BOLD}claude-notifier${NC} is ready                           ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}                                                      ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}   From now on, every Claude Code session will        ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}   notify you the moment Claude finishes a task       ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}   or is waiting for your input.                      ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}                                                      ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}   ${CYAN}◆  Claude Code — Done${NC}     task completed           ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}   ${YELLOW}◆  Claude Code — Waiting${NC}  needs your input         ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}                                                      ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}   ${DIM}Switch away freely — Claude will tap you.${NC}          ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  │${NC}                                                      ${BOLD}${GREEN}│${NC}"
+  echo -e "${BOLD}${GREEN}  ╰──────────────────────────────────────────────────────╯${NC}"
+  echo
+}
+
 main() {
   info "Starting installation…"
   check_python3
   install_deps
   install_script
   patch_settings
-  info "Done. Claude Code will notify you when it finishes or needs input."
+  print_success
 }
 
 main
