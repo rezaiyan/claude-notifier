@@ -13,17 +13,28 @@ Supports **macOS** and **Linux**.
 
 ## Install
 
+**Homebrew (macOS)**
 ```bash
-git clone https://github.com/alirezaiyan/claude-notifier.git
+brew install rezaiyan/tap/claude-notifier
+```
+
+**apt (Debian/Ubuntu)**
+```bash
+sudo apt install claude-notifier
+```
+
+**Manual**
+```bash
+git clone https://github.com/rezaiyan/claude-notifier.git
 cd claude-notifier
 chmod +x install.sh
 ./install.sh
 ```
 
-The installer:
-1. Installs system dependencies
-2. Copies `claude-notifier.py` to `~/.claude/hooks/`
-3. Registers the `Stop` hook in `~/.claude/settings.json`
+All install methods:
+1. Install system dependencies
+2. Place `claude-notifier.py` in the appropriate location
+3. Register the `Stop` hook in `~/.claude/settings.json`
 
 ## Dependencies
 
@@ -60,17 +71,27 @@ If you prefer not to use the installer:
 
 ## Uninstall
 
+**Homebrew**
+```bash
+# Remove the settings.json entry first (Homebrew has no uninstall hook)
+python3 $(brew --prefix)/lib/claude-notifier/unpatch-settings.py \
+        $(brew --prefix)/lib/claude-notifier/claude-notifier.py
+brew uninstall claude-notifier
+```
+
+**apt**
+```bash
+sudo apt remove claude-notifier   # cleans settings.json automatically via prerm
+```
+
+**Manual**
 ```bash
 ./uninstall.sh
 ```
 
-Removes the script from `~/.claude/hooks/` and cleans up `settings.json`.
-
-> **Package managers (brew, apt, etc.)** do not touch `~/.claude/settings.json`.
-> Always run `uninstall.sh` before or after removing via a package manager,
-> otherwise the hook entry will remain. If the script is already gone the
-> registered command fails silently, so Claude Code won't break — but running
-> `uninstall.sh` is the clean way to remove it fully.
+> If the script is removed without running the uninstall step, the hook entry
+> in `settings.json` silently no-ops — Claude Code won't break, but running
+> the uninstall is the clean way to remove it fully.
 
 ## Notes
 

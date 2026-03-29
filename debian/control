@@ -1,0 +1,18 @@
+Source: claude-notifier
+Section: utils
+Priority: optional
+Maintainer: Ali Rezaiyan <ali@rezaiyan.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/rezaiyan/claude-notifier
+Rules-Requires-Root: no
+
+Package: claude-notifier
+Architecture: all
+Depends: python3, libnotify-bin
+Recommends: xdotool
+Description: Desktop notifications for Claude Code
+ Fires a desktop notification when Claude Code finishes a task or is
+ waiting for your input, so you can switch away and come back when needed.
+ Supports macOS and Linux. On Linux, notifications are sent via notify-send
+ and focus detection uses xdotool (X11 only).

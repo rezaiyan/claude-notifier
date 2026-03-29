@@ -74,37 +74,7 @@ install_script() {
 
 # ── Patch settings.json ───────────────────────────────────────────────────────
 patch_settings() {
-  python3 - "$SETTINGS" "$HOOK_DIR/$SCRIPT_NAME" <<'PYEOF'
-import json, sys, pathlib
-
-settings_path = pathlib.Path(sys.argv[1])
-hook_command  = f"python3 {sys.argv[2]}"
-
-# Load or start fresh
-if settings_path.exists():
-    data = json.loads(settings_path.read_text())
-else:
-    data = {}
-
-# Ensure structure exists
-data.setdefault("hooks", {})
-data["hooks"].setdefault("Stop", [{}])
-data["hooks"]["Stop"][0].setdefault("hooks", [])
-
-existing = data["hooks"]["Stop"][0]["hooks"]
-# Wrap with existence check so an orphaned entry (e.g. after `brew uninstall`)
-# fails silently instead of producing a Python error on every Claude stop.
-guarded_command = f"[ -f {sys.argv[2]} ] && {hook_command} || true"
-entry = {"type": "command", "command": guarded_command}
-
-# Idempotent: only add if not already present
-if not any(h.get("command") == guarded_command for h in existing):
-    existing.append(entry)
-    settings_path.write_text(json.dumps(data, indent=2) + "\n")
-    print(f"[claude-notifier] Registered Stop hook in {settings_path}")
-else:
-    print(f"[claude-notifier] Stop hook already registered in {settings_path}")
-PYEOF
+  python3 "$(dirname "$0")/scripts/patch-settings.py" "$HOOK_DIR/$SCRIPT_NAME"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────

@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+HOOK_SCRIPT="/usr/lib/claude-notifier/claude-notifier.py"
+PATCH_SCRIPT="/usr/lib/claude-notifier/patch-settings.py"
+
+patch_for_user() {
+  local user="$1"
+  local home
+  home=$(getent passwd "$user" | cut -d: -f6)
+  if [[ -z "$home" ]]; then return; fi
+  su "$user" -c "HOME=$home python3 $PATCH_SCRIPT $HOOK_SCRIPT" || true
+}
+
+case "$1" in
+  configure)
+    if [[ -n "${SUDO_USER:-}" ]]; then
+      # Invoked via sudo — patch the real user's settings
+      patch_for_user "$SUDO_USER"
+    elif [[ "$(id -u)" -eq 0 ]]; then
+      # Running as root without SUDO_USER (e.g. in a container/CI) — skip
+      echo "claude-notifier: running as root without SUDO_USER, skipping settings patch." \
+        "Run: python3 $PATCH_SCRIPT $HOOK_SCRIPT" >&2
+    else
+      python3 "$PATCH_SCRIPT" "$HOOK_SCRIPT"
+    fi
+    ;;
+esac
+
+exit 0

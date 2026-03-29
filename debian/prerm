@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+HOOK_SCRIPT="/usr/lib/claude-notifier/claude-notifier.py"
+UNPATCH_SCRIPT="/usr/lib/claude-notifier/unpatch-settings.py"
+
+unpatch_for_user() {
+  local user="$1"
+  local home
+  home=$(getent passwd "$user" | cut -d: -f6)
+  if [[ -z "$home" ]]; then return; fi
+  su "$user" -c "HOME=$home python3 $UNPATCH_SCRIPT $HOOK_SCRIPT" || true
+}
+
+case "$1" in
+  remove|purge)
+    if [[ -n "${SUDO_USER:-}" ]]; then
+      unpatch_for_user "$SUDO_USER"
+    elif [[ "$(id -u)" -ne 0 ]]; then
+      python3 "$UNPATCH_SCRIPT" "$HOOK_SCRIPT"
+    else
+      echo "claude-notifier: running as root without SUDO_USER, skipping settings patch." \
+        "Run: python3 $UNPATCH_SCRIPT $HOOK_SCRIPT" >&2
+    fi
+    ;;
+esac
+
+exit 0

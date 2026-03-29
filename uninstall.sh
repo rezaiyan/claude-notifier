@@ -20,43 +20,7 @@ remove_script() {
 }
 
 patch_settings() {
-  if [[ ! -f "$SETTINGS" ]]; then
-    warn "settings.json not found — skipping."
-    return
-  fi
-
-  python3 - "$SETTINGS" "$HOOK_PATH" <<'PYEOF'
-import json, sys, pathlib
-
-settings_path = pathlib.Path(sys.argv[1])
-hook_path     = sys.argv[2]
-hook_command  = f"python3 {hook_path}"
-guarded       = f"[ -f {hook_path} ] && {hook_command} || true"
-
-data = json.loads(settings_path.read_text())
-
-stop_blocks = data.get("hooks", {}).get("Stop", [])
-changed = False
-
-for block in stop_blocks:
-    hooks = block.get("hooks", [])
-    before = len(hooks)
-    # Match both the guarded command (normal install) and the bare command (manual install)
-    block["hooks"] = [h for h in hooks if h.get("command") not in (hook_command, guarded)]
-    if len(block["hooks"]) < before:
-        changed = True
-
-# Remove empty Stop blocks
-data["hooks"]["Stop"] = [b for b in stop_blocks if b.get("hooks")]
-if not data["hooks"]["Stop"]:
-    del data["hooks"]["Stop"]
-
-if changed:
-    settings_path.write_text(json.dumps(data, indent=2) + "\n")
-    print(f"[claude-notifier] Removed Stop hook from {settings_path}")
-else:
-    print(f"[claude-notifier] Hook entry not found in {settings_path} — skipping.")
-PYEOF
+  python3 "$(dirname "$0")/scripts/unpatch-settings.py" "$HOOK_PATH"
 }
 
 main() {
