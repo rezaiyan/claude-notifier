@@ -13,21 +13,28 @@ class ClaudeNotifier < Formula
     libexec.install "claude-notifier.py"
     libexec.install "scripts/patch-settings.py"
     libexec.install "scripts/unpatch-settings.py"
-  end
 
-  # Runs as the installing user (not root), so Path.home() is correct.
-  def post_install
-    system "python3", "#{libexec}/patch-settings.py", "#{libexec}/claude-notifier.py"
+    # Bin wrappers run in the user's shell context (no sandbox), so they can
+    # write to ~/.claude/settings.json — unlike post_install which is sandboxed.
+    (bin/"claude-notifier-setup").write <<~SH
+      #!/bin/bash
+      exec python3 "#{libexec}/patch-settings.py" "#{libexec}/claude-notifier.py"
+    SH
+
+    (bin/"claude-notifier-teardown").write <<~SH
+      #!/bin/bash
+      exec python3 "#{libexec}/unpatch-settings.py" "#{libexec}/claude-notifier.py"
+    SH
   end
 
   def caveats
     <<~EOS
-      claude-notifier has been registered as a Claude Code Stop hook.
+      To register the Claude Code hook, run:
+        claude-notifier-setup
 
-      To uninstall cleanly, remove the hook entry from settings.json first:
-        python3 #{opt_libexec}/unpatch-settings.py #{opt_libexec}/claude-notifier.py
-
-      Then uninstall: brew uninstall claude-notifier
+      To uninstall cleanly:
+        claude-notifier-teardown
+        brew uninstall claude-notifier
 
       For click-to-focus notifications, also install terminal-notifier:
         brew install terminal-notifier
