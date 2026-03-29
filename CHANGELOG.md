@@ -6,6 +6,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-03-29
+
 ### Fixed
 - Homebrew deploy workflow now copies the full formula from source before
   substituting url/sha256/version, so structural changes are always reflected
