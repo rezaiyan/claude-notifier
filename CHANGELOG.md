@@ -6,6 +6,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-03-29
+
 ### Fixed
 - Homebrew `post_install` sandbox blocks writes to `~/.claude/settings.json`;
   replaced with `claude-notifier-setup` / `claude-notifier-teardown` bin commands
