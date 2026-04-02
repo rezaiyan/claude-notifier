@@ -6,6 +6,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-04-02
+
+### Changed
+- Homebrew `post_install` now bootstraps a one-shot LaunchAgent to run `claude-notifier-setup` outside the sandbox, so `brew install` registers the hook automatically without any manual step
+- `claude-notifier-setup` cleans up the LaunchAgent plist after it runs and suppresses the success box when not running in an interactive terminal
+- Caveats now show three states: registered (success), plist pending (background registration in progress), or manual fallback
+
 ## [1.0.6] - 2026-04-02
 
 ### Changed
