@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
 Stop hook: fires a desktop notification when Claude finishes or is waiting.
-Clicking the notification focuses the terminal window (macOS only).
 
-macOS:  terminal-notifier (optional, falls back to osascript)
+macOS:  ClaudeNotifier.app (bundled, falls back to osascript)
 Linux:  notify-send | focus detection via xdotool (X11 only)
 """
 import argparse
@@ -24,17 +23,6 @@ WAITING_SIGNALS = [
     "shall i",
     "ready to",
 ]
-
-# macOS: app name → bundle ID
-KNOWN_TERMINALS_MACOS: dict[str, str] = {
-    "Terminal": "com.apple.Terminal",
-    "iTerm2": "com.googlecode.iterm2",
-    "Warp": "dev.warp.Warp-Stable",
-    "Ghostty": "com.mitchellh.ghostty",
-    "Alacritty": "io.alacritty",
-    "kitty": "net.kovidgoyal.kitty",
-    "Hyper": "co.zeit.hyper",
-}
 
 # Linux: substrings matched against the active window title (lowercase)
 KNOWN_TERMINALS_LINUX = {
@@ -66,20 +54,6 @@ def extract_title(last_msg: str) -> str:
 
 # ── macOS ─────────────────────────────────────────────────────────────────────
 
-def _detect_terminal_macos() -> tuple[str, str]:
-    """Detect the running terminal from env vars. Returns (app_name, bundle_id)."""
-    env = os.environ
-    term_prog = env.get("TERM_PROGRAM", "")
-
-    if "ITERM_SESSION_ID" in env or term_prog == "iTerm.app":
-        return "iTerm2", "com.googlecode.iterm2"
-    if "WARP_IS_LOCAL_SHELL_SESSION" in env or term_prog == "WarpTerminal":
-        return "Warp", "dev.warp.Warp-Stable"
-    if "GHOSTTY_RESOURCES_DIR" in env or term_prog == "ghostty":
-        return "Ghostty", "com.mitchellh.ghostty"
-    return "Terminal", "com.apple.Terminal"
-
-
 def _macos_is_terminal_focused() -> bool:
     try:
         result = subprocess.run(
@@ -94,32 +68,32 @@ def _macos_is_terminal_focused() -> bool:
         )
     except subprocess.TimeoutExpired:
         return False
-    return result.stdout.strip() in KNOWN_TERMINALS_MACOS
+    known = {
+        "Terminal", "iTerm2", "Warp", "Ghostty", "Alacritty", "kitty", "Hyper",
+    }
+    return result.stdout.strip() in known
 
 
 def _macos_notify(title: str, message: str, subtitle: str) -> None:
-    _, bundle_id = _detect_terminal_macos()
-
-    try:
-        result = subprocess.run(
-            [
-                "terminal-notifier",
-                "-title", title,
-                "-subtitle", subtitle,
-                "-message", message,
-                "-sound", "Glass",
-                "-sender", bundle_id,
-                "-activate", bundle_id,
-                "-group", "claude-code",
-            ],
-            capture_output=True,
-        )
-        if result.returncode == 0:
+    # Prefer the bundled app (installed by Homebrew alongside this script).
+    # Path: {cellar_prefix}/libexec/claude-notifier.py  →  ../ClaudeNotifier.app
+    bundled = (
+        Path(__file__).resolve().parent.parent
+        / "ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
+    )
+    if bundled.exists():
+        try:
+            # Fire-and-forget: the app manages its own run loop and exits when done.
+            subprocess.Popen(
+                [str(bundled), "-title", title, "-message", message, "-subtitle", subtitle],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             return
-    except FileNotFoundError:
-        pass
+        except OSError:
+            pass
 
-    # Fallback: plain osascript notification
+    # Fallback: osascript (manual installs, CI, non-Homebrew environments)
     safe = {k: v.replace('"', '\\"') for k, v in
             {"title": title, "message": message, "subtitle": subtitle}.items()}
     subprocess.run(

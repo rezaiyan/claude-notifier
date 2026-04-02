@@ -6,6 +6,17 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-02
+
+### Added
+- `Sources/ClaudeNotifier/main.swift` + `Info.plist`: self-owned native macOS app bundle (`ClaudeNotifier.app`) delivering notifications via `UNUserNotificationCenter` with bundle ID `io.github.rezaiyan.claude-notifier`; appears as a first-class entry in System Preferences → Notifications
+- `.github/workflows/bottles.yml`: automated Homebrew bottle builds for `arm64_sequoia`, `arm64_sonoma`, and `ventura`; bottles uploaded to the GitHub release and SHA256 stanzas injected into the tap formula automatically
+
+### Changed
+- Homebrew formula compiles the Swift helper and assembles the `.app` bundle at install time (ad-hoc signed; no Team ID or personal credentials in source); removed `depends_on "terminal-notifier"`
+- `claude-notifier.py`: macOS notification path uses the bundled `ClaudeNotifier.app` (fire-and-forget), falls back to `osascript` for non-Homebrew installs
+- `install.sh`: removed terminal-notifier install step on macOS
+
 ## [1.0.9] - 2026-04-02
 
 ### Changed

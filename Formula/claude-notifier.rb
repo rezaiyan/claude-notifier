@@ -8,14 +8,34 @@ class ClaudeNotifier < Formula
   head "https://github.com/rezaiyan/claude-notifier.git", branch: "main"
 
   depends_on :macos
+  depends_on xcode: :build  # compile-time only; end users receive pre-built bottles
 
   def install
+    # ── Build the native notification helper ──────────────────────────────────
+    system "swiftc",
+           "-framework", "AppKit",
+           "-framework", "UserNotifications",
+           "Sources/ClaudeNotifier/main.swift",
+           "-o", "ClaudeNotifier"
+
+    # Assemble .app bundle
+    app_contents = prefix/"ClaudeNotifier.app/Contents"
+    (app_contents/"MacOS").mkpath
+    app_contents.install "Sources/ClaudeNotifier/Info.plist"
+    (app_contents/"MacOS").install "ClaudeNotifier"
+
+    # Ad-hoc sign — no Team ID, no cert; safe for open-source distribution.
+    # Homebrew-installed tools are not quarantined, so Gatekeeper is not an issue.
+    system "codesign", "--force", "--deep", "--sign", "-",
+           prefix/"ClaudeNotifier.app"
+
+    # ── Python hook scripts ────────────────────────────────────────────────────
     libexec.install "claude-notifier.py"
     libexec.install "scripts/patch-settings.py"
     libexec.install "scripts/unpatch-settings.py"
 
-    # Bin wrappers run in the user's shell context (no sandbox), so they can
-    # write to ~/.claude/settings.json — unlike post_install which is sandboxed.
+    # Bin wrappers run in the user's shell (no sandbox), so they can write to
+    # ~/.claude/settings.json — unlike post_install which is sandboxed.
     (bin/"claude-notifier-setup").write <<~SH
       #!/bin/bash
       python3 "#{libexec}/patch-settings.py" "#{libexec}/claude-notifier.py" || exit 1
@@ -52,8 +72,6 @@ class ClaudeNotifier < Formula
       To uninstall cleanly:
         claude-notifier-teardown && brew uninstall claude-notifier
 
-      Optional – click notification to jump back to terminal:
-        brew install terminal-notifier
     EOS
   end
 

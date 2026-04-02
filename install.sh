@@ -15,18 +15,7 @@ error()   { echo -e "${RED}[claude-notifier]${NC} $*" >&2; exit 1; }
 # ── Dependencies ──────────────────────────────────────────────────────────────
 install_deps() {
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    if ! command -v terminal-notifier &>/dev/null; then
-      if command -v brew &>/dev/null; then
-        info "Installing terminal-notifier via Homebrew…"
-        brew install terminal-notifier
-      else
-        warn "terminal-notifier not found and Homebrew is not installed."
-        warn "Notifications will fall back to osascript (no click-to-focus)."
-        warn "To install manually: brew install terminal-notifier"
-      fi
-    else
-      info "terminal-notifier already installed."
-    fi
+    : # macOS ships osascript; the bundled ClaudeNotifier.app is provided by Homebrew
 
   elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     if ! command -v notify-send &>/dev/null; then

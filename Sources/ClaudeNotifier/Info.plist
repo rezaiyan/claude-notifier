@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- No personal domain — GitHub handle only -->
+  <key>CFBundleIdentifier</key>
+  <string>io.github.rezaiyan.claude-notifier</string>
+
+  <key>CFBundleName</key>
+  <string>Claude Notifier</string>
+
+  <key>CFBundleExecutable</key>
+  <string>ClaudeNotifier</string>
+
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+
+  <key>CFBundleVersion</key>
+  <string>1</string>
+
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+
+  <!-- Prefer alert style (persistent) over banner (auto-dismiss) -->
+  <key>NSUserNotificationAlertStyle</key>
+  <string>alert</string>
+
+  <!-- Background-only: no Dock icon, no menu bar -->
+  <key>LSUIElement</key>
+  <true/>
+</dict>
+</plist>

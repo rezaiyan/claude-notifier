@@ -9,7 +9,7 @@ Supports **macOS** and **Linux**.
 - **Done** — notifies when Claude completes a response
 - **Waiting** — notifies when Claude needs your input ("should I proceed?", etc.)
 - Always notifies by default, even when your terminal is focused
-- On macOS: clicking the notification brings your terminal back into focus
+- On macOS: delivered via a native bundled app (`ClaudeNotifier.app`) — appears as a first-class notification with its own entry in System Preferences → Notifications
 
 ## Install
 
@@ -40,10 +40,10 @@ All install methods:
 
 | Platform | Required | Optional |
 |---|---|---|
-| macOS | — (osascript built-in) | `terminal-notifier` (click-to-focus) |
+| macOS | — (bundled `ClaudeNotifier.app`) | — |
 | Linux | `libnotify-bin` (notify-send) | `xdotool` (focus detection, X11 only) |
 
-The installer handles these automatically. On macOS, `terminal-notifier` is installed via Homebrew if available.
+On macOS, notifications are delivered by a tiny native app bundled with the formula. It is compiled at bottle-build time — end users download a pre-built bottle and never need Xcode.
 
 ## Manual install
 
@@ -74,8 +74,8 @@ If you prefer not to use the installer:
 **Homebrew**
 ```bash
 # Remove the settings.json entry first (Homebrew has no uninstall hook)
-python3 $(brew --prefix)/lib/claude-notifier/unpatch-settings.py \
-        $(brew --prefix)/lib/claude-notifier/claude-notifier.py
+python3 $(brew --prefix)/opt/claude-notifier/libexec/unpatch-settings.py \
+        $(brew --prefix)/opt/claude-notifier/libexec/claude-notifier.py
 brew uninstall claude-notifier
 ```
 
@@ -116,7 +116,7 @@ python3 scripts/patch-settings.py ~/.claude/hooks/claude-notifier.py --skip-if-f
 
 - **Wayland (Linux)**: focus detection is not supported — `CLAUDE_NOTIFIER_SKIP_IF_FOCUSED=1` has no effect
 - **X11 without xdotool**: same behaviour as Wayland
-- **No terminal-notifier (macOS)**: falls back to `osascript display notification` (no click-to-focus)
+- **macOS**: notifications come from `ClaudeNotifier.app` (bundled); falls back to `osascript` for manual/non-Homebrew installs
 
 ## License
 
