@@ -47,7 +47,7 @@ jobs:
         with:
           name: bottle-${{ matrix.bottle_tag }}
           path: |
-            *.bottle.tar.gz
+            *.bottle.*.tar.gz
             *.bottle.json
 
   # ── Upload bottles to release + update formula in tap ────────────────────────
@@ -71,7 +71,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          find ./bottles -name "*.bottle.tar.gz" | while read -r f; do
+          find ./bottles -name "*.bottle.*.tar.gz" | while read -r f; do
             echo "Uploading: $f"
             gh release upload "${TAG}" "${f}" \
               --repo rezaiyan/claude-notifier --clobber
@@ -90,7 +90,8 @@ jobs:
           import json, re
           from pathlib import Path
 
-          bottle_files = sorted(Path("./bottles").glob("**/*.bottle.json"))
+          bottle_files = sorted(Path("./bottles").glob("**/*.bottle.json")) or \
+                         sorted(Path("./bottles").glob("**/*.json"))
           if not bottle_files:
               raise SystemExit("No bottle JSON files found")
 
