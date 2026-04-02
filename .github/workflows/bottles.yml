@@ -64,13 +64,15 @@ jobs:
         with:
           pattern: bottle-*
           merge-multiple: true
+          path: ./bottles
 
       - name: Upload bottles to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          for f in *.bottle.tar.gz; do
+          find ./bottles -name "*.bottle.tar.gz" | while read -r f; do
+            echo "Uploading: $f"
             gh release upload "${TAG}" "${f}" \
               --repo rezaiyan/claude-notifier --clobber
           done
@@ -88,7 +90,7 @@ jobs:
           import json, re
           from pathlib import Path
 
-          bottle_files = sorted(Path(".").glob("*.bottle.json"))
+          bottle_files = sorted(Path("./bottles").glob("**/*.bottle.json"))
           if not bottle_files:
               raise SystemExit("No bottle JSON files found")
 
