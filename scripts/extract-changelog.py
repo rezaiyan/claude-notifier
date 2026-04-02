@@ -13,7 +13,7 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 version = sys.argv[1].lstrip("v")
-content = Path("CHANGELOG.md").read_text()
+content = (Path(__file__).parent.parent / "CHANGELOG.md").read_text()
 
 pattern = rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\Z)"
 match = re.search(pattern, content, re.DOTALL)

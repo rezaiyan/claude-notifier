@@ -20,7 +20,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 # ── Parse current version ─────────────────────────────────────────────────────
-current=$(cat VERSION | tr -d '[:space:]')
+current=$(tr -d '[:space:]' < VERSION)
 major=$(echo "$current" | cut -d. -f1)
 minor=$(echo "$current" | cut -d. -f2)
 patch=$(echo "$current" | cut -d. -f3)

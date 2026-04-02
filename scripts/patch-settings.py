@@ -8,14 +8,16 @@ import sys
 from pathlib import Path
 
 if len(sys.argv) < 2:
-    print("Usage: patch-settings.py <path-to-claude-notifier.py>", file=sys.stderr)
+    print("Usage: patch-settings.py <path-to-claude-notifier.py> [args...]", file=sys.stderr)
     sys.exit(1)
 
 hook_path = sys.argv[1]
+extra_args = sys.argv[2:]  # e.g. ["--skip-if-focused"]
 settings_path = Path.home() / ".claude" / "settings.json"
 
-hook_command = f"python3 {hook_path}"
-guarded = f"[ -f {hook_path} ] && {hook_command} || true"
+extra = (" " + " ".join(extra_args)) if extra_args else ""
+hook_command = f'python3 "{hook_path}"{extra}'
+guarded = f'[ -f "{hook_path}" ] && {hook_command} || true'
 
 try:
     data = json.loads(settings_path.read_text()) if settings_path.exists() else {}

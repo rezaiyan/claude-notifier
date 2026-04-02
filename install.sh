@@ -74,7 +74,7 @@ install_script() {
 
 # ── Patch settings.json ───────────────────────────────────────────────────────
 patch_settings() {
-  python3 "$(dirname "$0")/scripts/patch-settings.py" "$HOOK_DIR/$SCRIPT_NAME"
+  python3 "$(dirname "$0")/scripts/patch-settings.py" "$HOOK_DIR/$SCRIPT_NAME" "$@"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -108,8 +108,8 @@ main() {
   check_python3
   install_deps
   install_script
-  patch_settings
+  patch_settings "$@"
   print_success
 }
 
-main
+main "$@"

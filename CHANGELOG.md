@@ -6,6 +6,19 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-04-02
+
+### Added
+- `--skip-if-focused` flag: pass at install time (`./install.sh --skip-if-focused`) or append to the hook command in `settings.json` to suppress notifications when the terminal is already focused (default: always notify)
+
+### Fixed
+- Hook command and guard string now quote the script path, preventing breakage when `$HOME` contains spaces
+- `subprocess.run` calls for focus detection now have a 3-second timeout, preventing the hook from hanging if `osascript` or `xdotool` stalls
+- `extract-changelog.py` now resolves `CHANGELOG.md` relative to the script, not the working directory
+- `unpatch-settings.py` skips writing `settings.json` when no matching hook entry is found
+- Removed `"confirm"` from waiting-signal list to eliminate false "Waiting" notifications
+- `debian/postinst`: `su` now uses `-s /bin/sh` for portability on restricted-shell systems
+
 ## [1.0.4] - 2026-03-29
 
 ### Changed

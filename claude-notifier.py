@@ -6,6 +6,7 @@ Clicking the notification focuses the terminal window (macOS only).
 macOS:  terminal-notifier (optional, falls back to osascript)
 Linux:  notify-send | focus detection via xdotool (X11 only)
 """
+import argparse
 import json
 import os
 import re
@@ -22,7 +23,6 @@ WAITING_SIGNALS = [
     "do you want",
     "shall i",
     "ready to",
-    "confirm",
 ]
 
 # macOS: app name → bundle ID
@@ -42,6 +42,9 @@ KNOWN_TERMINALS_LINUX = {
     "tilix", "terminator", "xfce4-terminal", "warp", "ghostty",
     "st", "urxvt", "rxvt",
 }
+
+
+_SUBPROCESS_TIMEOUT = 3  # seconds — prevents hangs in focus detection
 
 
 def extract_title(last_msg: str) -> str:
@@ -78,15 +81,19 @@ def _detect_terminal_macos() -> tuple[str, str]:
 
 
 def _macos_is_terminal_focused() -> bool:
-    result = subprocess.run(
-        [
-            "osascript", "-e",
-            "tell application \"System Events\" to "
-            "name of first application process whose frontmost is true",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                "osascript", "-e",
+                "tell application \"System Events\" to "
+                "name of first application process whose frontmost is true",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=_SUBPROCESS_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.stdout.strip() in KNOWN_TERMINALS_MACOS
 
 
@@ -144,12 +151,13 @@ def _linux_is_terminal_focused() -> bool:
             ["xdotool", "getactivewindow", "getwindowname"],
             capture_output=True,
             text=True,
+            timeout=_SUBPROCESS_TIMEOUT,
         )
         if result.returncode != 0:
             return False
         title = result.stdout.strip().lower()
         return any(name in title for name in KNOWN_TERMINALS_LINUX)
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
@@ -188,7 +196,12 @@ def notify(title: str, message: str, subtitle: str) -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--skip-if-focused", action="store_true")
+    args, _ = parser.parse_known_args()
+
     try:
         data = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
@@ -197,7 +210,7 @@ def main() -> None:
     if not isinstance(data, dict):
         sys.exit(0)
 
-    if data.get("stop_hook_active") or is_terminal_focused():
+    if data.get("stop_hook_active") or (args.skip_if_focused and is_terminal_focused()):
         print(json.dumps({}))
         return
 

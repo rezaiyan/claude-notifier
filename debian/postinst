@@ -9,7 +9,7 @@ patch_for_user() {
   local home
   home=$(getent passwd "$user" | cut -d: -f6)
   if [[ -z "$home" ]]; then return; fi
-  su "$user" -c "HOME=$home python3 $PATCH_SCRIPT $HOOK_SCRIPT" || true
+  su -s /bin/sh "$user" -c "HOME=$home python3 $PATCH_SCRIPT $HOOK_SCRIPT" || true
 }
 
 case "$1" in

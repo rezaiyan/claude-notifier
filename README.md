@@ -7,8 +7,8 @@ Supports **macOS** and **Linux**.
 ## What it does
 
 - **Done** — notifies when Claude completes a response
-- **Waiting** — notifies when Claude needs your input ("should I proceed?", "confirm", etc.)
-- Skips the notification if your terminal is already focused (no noise when you're watching)
+- **Waiting** — notifies when Claude needs your input ("should I proceed?", etc.)
+- Always notifies by default, even when your terminal is focused
 - On macOS: clicking the notification brings your terminal back into focus
 
 ## Install
@@ -93,9 +93,28 @@ sudo apt remove claude-notifier   # cleans settings.json automatically via prerm
 > in `settings.json` silently no-ops — Claude Code won't break, but running
 > the uninstall is the clean way to remove it fully.
 
+## Configuration
+
+By default, notifications always fire. Pass `--skip-if-focused` at install time to suppress them when your terminal is already in the foreground:
+
+**Homebrew / apt** — edit the registered hook in `~/.claude/settings.json` and append the flag:
+```json
+{ "type": "command", "command": "python3 ~/.claude/hooks/claude-notifier.py --skip-if-focused" }
+```
+
+**Manual install**
+```bash
+./install.sh --skip-if-focused
+```
+
+**Re-registering after a manual install**
+```bash
+python3 scripts/patch-settings.py ~/.claude/hooks/claude-notifier.py --skip-if-focused
+```
+
 ## Notes
 
-- **Wayland (Linux)**: focus detection is not supported — notifications always fire
+- **Wayland (Linux)**: focus detection is not supported — `CLAUDE_NOTIFIER_SKIP_IF_FOCUSED=1` has no effect
 - **X11 without xdotool**: same behaviour as Wayland
 - **No terminal-notifier (macOS)**: falls back to `osascript display notification` (no click-to-focus)
 
