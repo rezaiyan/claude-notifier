@@ -6,6 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-04-03
+
+### Fixed
+- Re-added Developer ID Application signing step to bottles workflow (removed in v1.1.7 because the `APPLE_IDENTITY` secret held the wrong cert type). Now validates that the imported cert is `Developer ID Application` — not `Apple Development` — and fails the build early if the wrong type is used. Signing uses `--options runtime` for notarization compatibility
+
 ## [1.1.8] - 2026-04-02
 
 ### Fixed
