@@ -94,3 +94,11 @@ jobs:
           git add Formula/claude-notifier.rb
           git commit -m "claude-notifier ${{ github.ref_name }}"
           git push
+
+  # ── Build and publish Homebrew bottles ────────────────────────────────────────
+  bottles:
+    needs: deploy-brew   # tap formula must be updated before we bottle it
+    uses: ./.github/workflows/bottles.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

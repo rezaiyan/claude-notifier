@@ -6,6 +6,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-04-02
+
+### Fixed
+- Bottle filename: rename `name--version.tag.bottle.N.tar.gz` → `name-version.tag.bottle.tar.gz` at upload time to match what Homebrew expects when fetching
+- Bottles now build and publish automatically on every release via `workflow_call` chain in `release.yml` — no manual trigger needed
+
 ## [1.1.1] - 2026-04-02
 
 ### Fixed

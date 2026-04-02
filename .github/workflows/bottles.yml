@@ -1,10 +1,13 @@
 name: Build Homebrew Bottles
 
-# Triggered automatically after a release is published (which fires from release.yml).
-# Can also be triggered manually via workflow_dispatch for re-builds.
 on:
-  release:
-    types: [published]
+  # Called automatically by release.yml after every tag release
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  # Manual re-build trigger
   workflow_dispatch:
     inputs:
       tag:
@@ -34,20 +37,27 @@ jobs:
       - name: Install from source (build bottle)
         run: brew install --build-bottle rezaiyan/tap/claude-notifier
 
-      - name: Create bottle
+      - name: Create bottle and rename to Homebrew's expected filename
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          TAG="${{ inputs.tag }}"
           brew bottle \
             --json \
             --root-url "https://github.com/rezaiyan/claude-notifier/releases/download/${TAG}" \
             rezaiyan/tap/claude-notifier
+          # brew bottle outputs: name--version.tag.bottle.N.tar.gz
+          # Homebrew fetches:    name-version.tag.bottle.tar.gz  (single dash, no revision)
+          for f in *--*.bottle.*.tar.gz; do
+            new=$(echo "$f" | sed 's/--/-/; s/\.bottle\.[0-9]*\.tar\.gz/.bottle.tar.gz/')
+            mv "$f" "$new"
+            echo "Renamed: $f → $new"
+          done
 
       - name: Upload bottle artifact
         uses: actions/upload-artifact@v4
         with:
           name: bottle-${{ matrix.bottle_tag }}
           path: |
-            *.bottle.*.tar.gz
+            *.bottle.tar.gz
             *.bottle.json
 
   # ── Upload bottles to release + update formula in tap ────────────────────────
@@ -70,8 +80,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          find ./bottles -name "*.bottle.*.tar.gz" | while read -r f; do
+          TAG="${{ inputs.tag }}"
+          find ./bottles -name "*.bottle.tar.gz" | while read -r f; do
             echo "Uploading: $f"
             gh release upload "${TAG}" "${f}" \
               --repo rezaiyan/claude-notifier --clobber
@@ -140,5 +150,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/claude-notifier.rb
           git diff --staged --quiet && echo "No changes to commit" && exit 0
-          git commit -m "bottles: ${{ github.event.release.tag_name || inputs.tag }}"
+          git commit -m "bottles: ${{ inputs.tag }}"
           git push
