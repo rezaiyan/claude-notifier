@@ -6,6 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-04-02
+
+### Changed
+- Removed LaunchAgent-based sandbox-escape attempts from `post_install` (both `launchctl bootstrap` and `launchctl load` are blocked or silently inert under Homebrew's sandbox); reverted to clean, minimal caveats with a single `claude-notifier-setup` command
+
 ## [1.0.8] - 2026-04-02
 
 ### Fixed
