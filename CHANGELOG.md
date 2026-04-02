@@ -6,6 +6,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-04-02
+
+### Fixed
+- Homebrew bottles workflow: inject `root_url` into bottle stanza so Homebrew fetches from GitHub Releases instead of defaulting to `ghcr.io`
+- Homebrew bottles workflow: correct tap repo URL, artifact download path, and bottle filename glob (`*.bottle.N.tar.gz`)
+- Removed unsupported `macos-13` runner from bottles matrix
+
 ## [1.1.0] - 2026-04-02
 
 ### Added
