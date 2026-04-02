@@ -24,8 +24,6 @@ jobs:
             bottle_tag: arm64_sequoia
           - os: macos-14
             bottle_tag: arm64_sonoma
-          - os: macos-13
-            bottle_tag: ventura
 
     steps:
       - uses: Homebrew/actions/setup-homebrew@master
