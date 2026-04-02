@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# smoke-test.sh — build, verify, test notification, verify hooks, tear down.
-# Run this locally before tagging a release.
+# smoke-test.sh — upgrade via Homebrew, run setup, verify notification, tear down.
+# Mirrors exactly what a user does after a release: brew upgrade + claude-notifier-setup.
 #
 # Usage:
-#   ./scripts/smoke-test.sh          # build from source, test, clean up
-#   ./scripts/smoke-test.sh --brew   # brew install, test, brew uninstall
+#   ./scripts/smoke-test.sh          # production: brew update + upgrade + setup + test
+#   ./scripts/smoke-test.sh --local  # dev: build from source, test, clean up
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERSION="$(cat "$REPO_ROOT/VERSION")"
 BUNDLE_ID="io.github.rezaiyan.claude-notifier"
-MODE="local"
-[[ "${1:-}" == "--brew" ]] && MODE="brew"
+MACOS_MAJOR=$(sw_vers -productVersion | cut -d. -f1)
+MODE="brew"
+[[ "${1:-}" == "--local" ]] && MODE="local"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -37,74 +38,101 @@ SETTINGS_BAK="$HOME/.claude/settings.json.smoke-bak"
 
 cleanup() {
     rm -rf "$WORK_DIR"
+    # Restore settings.json so hook round-trip test doesn't leave stale state
     if [[ -f "$SETTINGS_BAK" ]]; then
         mv "$SETTINGS_BAK" "$SETTINGS"
         info "Restored ~/.claude/settings.json"
     fi
-    if [[ "$MODE" == "brew" ]] && brew list rezaiyan/tap/claude-notifier &>/dev/null; then
-        info "Uninstalling Homebrew formula..."
-        brew uninstall rezaiyan/tap/claude-notifier 2>/dev/null || true
+    if [[ "$MODE" == "local" ]]; then
+        rm -rf "$WORK_DIR"
     fi
 }
 trap cleanup EXIT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-ncprefs_registered() {
-    defaults read com.apple.ncprefs 2>/dev/null | grep -q "$BUNDLE_ID"
-}
-
 check_signing() {
     local app="$1"
-    local info
-    info=$(codesign -dv "$app" 2>&1 || true)
-    if echo "$info" | grep -q "Authority=Apple Development"; then
-        fail "Signed with Apple Development cert — Gatekeeper will reject on distribution"
-        echo "$info" | grep "Authority" | sed 's/^/       /'
-        return 1
-    elif echo "$info" | grep -q "Authority=Developer ID Application"; then
+    local sig
+    sig=$(codesign -dv "$app" 2>&1 || true)
+    if echo "$sig" | grep -q "Authority=Apple Development"; then
+        fail "Signed with Apple Development cert — hard-denied by macOS for notifications"
+        echo "$sig" | grep "Authority" | sed 's/^/       /'
+    elif echo "$sig" | grep -q "Authority=Developer ID Application"; then
         pass "Developer ID Application signed"
     else
         pass "Ad-hoc signed (correct for Homebrew distribution)"
     fi
 }
 
-fire_notification() {
-    local binary="$1"
-    "$binary" \
-        -title  "claude-notifier smoke test" \
-        -message "Delivery works ✓" \
-        -subtitle "v${VERSION} · $(date +%H:%M:%S)" &
-    # Wait up to 5 s for the process to hand off and exit
-    local pid=$!
-    local waited=0
-    while kill -0 "$pid" 2>/dev/null && (( waited < 5 )); do
-        sleep 1; (( waited++ ))
-    done
-}
-
-fire_osascript_notification() {
+fire_osascript() {
+    local ts; ts=$(date +%H:%M:%S)
     osascript -e \
-        'tell application "System Events" to display notification "Delivery works ✓" with title "claude-notifier smoke test" subtitle "osascript path"' \
+        "tell application \"System Events\" to display notification \"Delivery works ✓\" with title \"claude-notifier smoke test\" subtitle \"v${VERSION} · ${ts}\"" \
         2>/dev/null && return 0
-    # bare fallback for older macOS
     osascript -e \
-        'display notification "Delivery works ✓" with title "claude-notifier smoke test" sound name "Glass"' \
+        "display notification \"Delivery works ✓\" with title \"claude-notifier smoke test\" sound name \"Glass\"" \
         2>/dev/null
 }
 
+fire_app() {
+    local bin="$1"; local ts; ts=$(date +%H:%M:%S)
+    "$bin" -title "claude-notifier smoke test" -message "Delivery works ✓" \
+           -subtitle "v${VERSION} · ${ts}" &
+    local pid=$!
+    local waited=0
+    while kill -0 "$pid" 2>/dev/null && (( waited < 5 )); do sleep 1; (( waited++ )); done
+}
+
 # ═════════════════════════════════════════════════════════════════════════════
-echo -e "${BOLD}claude-notifier smoke test  v${VERSION}  [${MODE}]${NC}"
+echo -e "${BOLD}claude-notifier smoke test  v${VERSION}  [${MODE}]  macOS ${MACOS_MAJOR}${NC}"
 echo    "────────────────────────────────────────"
 
 # ── 1. Platform ───────────────────────────────────────────────────────────────
 header "1. Platform"
-if [[ "$OSTYPE" != "darwin"* ]]; then
-    fail "macOS required"; exit 1
-fi
+[[ "$OSTYPE" == "darwin"* ]] || { fail "macOS required"; exit 1; }
 pass "macOS $(sw_vers -productVersion)"
 
-# ── 2a. LOCAL: build from source ─────────────────────────────────────────────
-if [[ "$MODE" == "local" ]]; then
+# ── 2. Install / upgrade ──────────────────────────────────────────────────────
+if [[ "$MODE" == "brew" ]]; then
+    header "2. brew update + upgrade + setup"
+    info "brew update …"
+    brew update --quiet 2>&1 | grep -E "Updated|Already" || true
+
+    if brew list rezaiyan/tap/claude-notifier &>/dev/null; then
+        INSTALLED_VER=$(brew info rezaiyan/tap/claude-notifier 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [[ "$INSTALLED_VER" == "$VERSION" ]]; then
+            info "Already at v${VERSION} — reinstalling to exercise upgrade path …"
+            brew reinstall rezaiyan/tap/claude-notifier 2>&1 | tail -3 | sed 's/^/       /'
+        else
+            info "Upgrading $INSTALLED_VER → $VERSION …"
+            brew upgrade rezaiyan/tap/claude-notifier 2>&1 | tail -3 | sed 's/^/       /'
+        fi
+    else
+        info "Installing v${VERSION} …"
+        brew tap rezaiyan/tap https://github.com/rezaiyan/homebrew-tap &>/dev/null || true
+        brew install rezaiyan/tap/claude-notifier 2>&1 | tail -3 | sed 's/^/       /'
+    fi
+
+    CELLAR="$(brew --prefix rezaiyan/tap/claude-notifier)"
+    INSTALLED_VER=$(brew info rezaiyan/tap/claude-notifier 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    if [[ "$INSTALLED_VER" == "$VERSION" ]]; then
+        pass "Installed v${VERSION} at $CELLAR"
+    else
+        fail "Expected v${VERSION}, got v${INSTALLED_VER}"
+    fi
+
+    info "claude-notifier-setup …"
+    claude-notifier-setup 2>&1 | grep -v "^$" | sed 's/^/       /'
+    pass "Setup complete"
+
+    APP="$CELLAR/ClaudeNotifier.app"
+    NOTIFIER_BIN="$APP/Contents/MacOS/ClaudeNotifier"
+    PLIST="$APP/Contents/Info.plist"
+    HOOK_SCRIPT="$CELLAR/libexec/claude-notifier.py"
+    PATCH_SCRIPT="$CELLAR/libexec/patch-settings.py"
+    UNPATCH_SCRIPT="$CELLAR/libexec/unpatch-settings.py"
+
+else
     header "2. Build (local source)"
     APP="$WORK_DIR/ClaudeNotifier.app"
     mkdir -p "$APP/Contents/MacOS"
@@ -121,131 +149,77 @@ if [[ "$MODE" == "local" ]]; then
     pass "Compiled and ad-hoc signed"
     NOTIFIER_BIN="$APP/Contents/MacOS/ClaudeNotifier"
     PLIST="$APP/Contents/Info.plist"
-
-# ── 2b. BREW: install from tap ───────────────────────────────────────────────
-else
-    header "2. Homebrew install"
-    info "brew tap rezaiyan/tap …"
-    brew tap rezaiyan/tap https://github.com/rezaiyan/homebrew-tap &>/dev/null || true
-    info "brew install rezaiyan/tap/claude-notifier …"
-    brew install rezaiyan/tap/claude-notifier 2>&1 | tail -5 | sed 's/^/       /'
-    CELLAR="$(brew --prefix rezaiyan/tap/claude-notifier)"
-    APP="$CELLAR/ClaudeNotifier.app"
-    NOTIFIER_BIN="$APP/Contents/MacOS/ClaudeNotifier"
-    PLIST="$APP/Contents/Info.plist"
-    pass "Installed to $CELLAR"
+    HOOK_SCRIPT="$REPO_ROOT/claude-notifier.py"
+    PATCH_SCRIPT="$REPO_ROOT/scripts/patch-settings.py"
+    UNPATCH_SCRIPT="$REPO_ROOT/scripts/unpatch-settings.py"
 fi
 
 # ── 3. Info.plist ─────────────────────────────────────────────────────────────
 header "3. Info.plist"
 if /usr/libexec/PlistBuddy -c "Print :LSUIElement" "$PLIST" 2>/dev/null | grep -qi true; then
-    fail "LSUIElement=true — macOS 26 will skip the notification permission prompt"
+    fail "LSUIElement=true — permission prompt will be skipped on macOS 26"
 else
     pass "LSUIElement not set"
 fi
 BUNDLE_ID_ACTUAL=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST" 2>/dev/null || echo "")
-if [[ "$BUNDLE_ID_ACTUAL" == "$BUNDLE_ID" ]]; then
-    pass "Bundle ID: $BUNDLE_ID"
-else
-    fail "Bundle ID mismatch: expected '$BUNDLE_ID', got '$BUNDLE_ID_ACTUAL'"
-fi
+[[ "$BUNDLE_ID_ACTUAL" == "$BUNDLE_ID" ]] \
+    && pass "Bundle ID: $BUNDLE_ID" \
+    || fail "Bundle ID mismatch: expected '$BUNDLE_ID', got '$BUNDLE_ID_ACTUAL'"
 
 # ── 4. Code signature ─────────────────────────────────────────────────────────
 header "4. Code signature"
 check_signing "$APP"
 
-# ── 5. Notification permission (pre-flight) ───────────────────────────────────
-header "5. Notification permission (before launch)"
-if ncprefs_registered; then
-    pass "Already registered in com.apple.ncprefs"
-else
-    warn "Not yet registered — expected on a fresh install"
-fi
+# ── 5. Notification delivery (end-to-end via installed hook) ──────────────────
+header "5. Notification delivery"
+info "Piping stop-hook JSON through the installed claude-notifier.py …"
+echo '{"last_assistant_message": "smoke test complete", "stop_hook_active": false}' \
+    | python3 "$HOOK_SCRIPT"
+sleep 2
 
-# ── 6. Notification delivery ──────────────────────────────────────────────────
-header "6. Notification delivery"
-MACOS_MAJOR=$(sw_vers -productVersion | cut -d. -f1)
-
-if (( MACOS_MAJOR >= 26 )); then
-    info "macOS ${MACOS_MAJOR} detected — using osascript path (ClaudeNotifier.app hard-denied on Tahoe for ad-hoc signed binaries)"
-    fire_osascript_notification
-    sleep 1
-    if ask "Did you see a notification?"; then
-        pass "osascript delivery confirmed"
-    else
-        fail "No notification seen — check System Events automation permission"
-    fi
+if ask "Did you see a notification?"; then
+    pass "End-to-end delivery confirmed"
 else
-    info "macOS ${MACOS_MAJOR} — launching ClaudeNotifier.app…"
-    if [[ ! -x "$NOTIFIER_BIN" ]]; then
-        fail "Binary not executable: $NOTIFIER_BIN"; exit 1
-    fi
-    fire_notification "$NOTIFIER_BIN"
-    if ncprefs_registered; then
-        pass "Registered in com.apple.ncprefs after launch"
+    fail "No notification seen"
+    if (( MACOS_MAJOR >= 26 )); then
+        warn "macOS 26: check that osascript / System Events has Automation permission"
+        warn "System Settings → Privacy & Security → Automation → allow Terminal/Claude Code"
     else
-        warn "Still not in com.apple.ncprefs — may need a second launch after granting permission"
-    fi
-    if ask "Did you see a notification or a 'Allow Notifications?' dialog?"; then
-        pass "Visual delivery confirmed"
-    else
-        fail "No notification or dialog seen"
         warn "Check: System Settings → Notifications → Claude Notifier"
     fi
 fi
 
-# ── 7. Hook round-trip ────────────────────────────────────────────────────────
-header "7. Hook script (patch / unpatch)"
+# ── 6. Hook settings.json round-trip ─────────────────────────────────────────
+header "6. Hook settings.json (patch / unpatch)"
 [[ -f "$SETTINGS" ]] && cp "$SETTINGS" "$SETTINGS_BAK"
 
-HOOK_SCRIPT="$REPO_ROOT/claude-notifier.py"
-if [[ "$MODE" == "brew" ]]; then
-    HOOK_SCRIPT="$(brew --prefix rezaiyan/tap/claude-notifier)/libexec/claude-notifier.py"
-fi
-
 info "patch-settings.py …"
-python3 "$REPO_ROOT/scripts/patch-settings.py" "$HOOK_SCRIPT"
+python3 "$PATCH_SCRIPT" "$HOOK_SCRIPT"
 if grep -q "claude-notifier.py" "$SETTINGS" 2>/dev/null; then
     pass "Hook registered"
 else
-    fail "Hook not found in settings.json after patch"
+    fail "Hook not found after patch"
 fi
 
-# Run twice — second run must not add a duplicate
-info "patch-settings.py (idempotency check) …"
+info "Idempotency check (second patch run) …"
 COUNT_BEFORE=$(grep -c "claude-notifier.py" "$SETTINGS" 2>/dev/null || echo 0)
-python3 "$REPO_ROOT/scripts/patch-settings.py" "$HOOK_SCRIPT"
+python3 "$PATCH_SCRIPT" "$HOOK_SCRIPT"
 COUNT_AFTER=$(grep -c "claude-notifier.py" "$SETTINGS" 2>/dev/null || echo 0)
-if [[ "$COUNT_BEFORE" -eq "$COUNT_AFTER" ]]; then
-    pass "Idempotent (no duplicate hook added)"
-else
-    fail "Duplicate hook added on second run ($COUNT_BEFORE → $COUNT_AFTER)"
-fi
+[[ "$COUNT_BEFORE" -eq "$COUNT_AFTER" ]] \
+    && pass "Idempotent (no duplicate)" \
+    || fail "Duplicate hook added ($COUNT_BEFORE → $COUNT_AFTER)"
 
 info "unpatch-settings.py …"
-python3 "$REPO_ROOT/scripts/unpatch-settings.py" "$HOOK_SCRIPT"
-if grep -q "claude-notifier.py" "$SETTINGS" 2>/dev/null; then
-    fail "Hook still present after unpatch"
-else
-    pass "Hook removed"
-fi
-
-# ── 8. End-to-end hook pipe ───────────────────────────────────────────────────
-header "8. Hook pipe (JSON → notify)"
-info "Piping stop-hook JSON to claude-notifier.py …"
-OUTPUT=$(echo '{"last_assistant_message": "smoke test complete", "stop_hook_active": false}' \
-    | python3 "$HOOK_SCRIPT" 2>&1 || true)
-if echo "$OUTPUT" | python3 -c "import sys,json; json.load(sys.stdin)" &>/dev/null; then
-    pass "Hook returned valid JSON"
-else
-    fail "Hook output is not valid JSON: $OUTPUT"
-fi
+python3 "$UNPATCH_SCRIPT" "$HOOK_SCRIPT"
+grep -q "claude-notifier.py" "$SETTINGS" 2>/dev/null \
+    && fail "Hook still present after unpatch" \
+    || pass "Hook removed"
 
 # ── Result ────────────────────────────────────────────────────────────────────
 echo
 echo "────────────────────────────────────────"
 if [[ $FAILURES -eq 0 ]]; then
-    echo -e "${GREEN}${BOLD}  All checks passed — safe to release v${VERSION}${NC}"
+    echo -e "${GREEN}${BOLD}  All checks passed — v${VERSION} ships${NC}"
     exit 0
 else
     echo -e "${RED}${BOLD}  ${FAILURES} check(s) failed — do not release${NC}"
