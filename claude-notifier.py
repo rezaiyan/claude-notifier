@@ -93,19 +93,33 @@ def _macos_notify(title: str, message: str, subtitle: str) -> None:
         except OSError:
             pass
 
-    # Fallback: osascript (manual installs, CI, non-Homebrew environments)
+    # Fallback: osascript — manual/non-Homebrew installs only.
+    # macOS 26 (Tahoe) broke top-level `display notification` (error -2740).
+    # Prefer the System Events delegation form; fall back to bare display notification
+    # for older macOS where System Events doesn't support that syntax.
     safe = {k: v.replace('"', '\\"') for k, v in
             {"title": title, "message": message, "subtitle": subtitle}.items()}
-    subprocess.run(
+    result = subprocess.run(
         [
             "osascript", "-e",
+            f'tell application "System Events" to '
             f'display notification "{safe["message"]}" '
             f'with title "{safe["title"]}" '
-            f'subtitle "{safe["subtitle"]}" '
-            f'sound name "Glass"',
+            f'subtitle "{safe["subtitle"]}"',
         ],
         capture_output=True,
     )
+    if result.returncode != 0:
+        subprocess.run(
+            [
+                "osascript", "-e",
+                f'display notification "{safe["message"]}" '
+                f'with title "{safe["title"]}" '
+                f'subtitle "{safe["subtitle"]}" '
+                f'sound name "Glass"',
+            ],
+            capture_output=True,
+        )
 
 
 # ── Linux ─────────────────────────────────────────────────────────────────────

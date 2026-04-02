@@ -6,6 +6,15 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-04-02
+
+### Fixed
+- osascript fallback now delegates to `System Events` first (`tell application "System Events" to display notification`) — fixes macOS 26 (Tahoe) error `-2740` where top-level `display notification` is blocked; bare form retained as a fallback for older macOS
+- `~/.claude/hooks/claude-notifier.py` synced to v1.1.3 source (removed stale terminal-notifier path)
+
+### Changed
+- Bottles workflow now signs `ClaudeNotifier.app` with a Developer ID Application certificate (from GitHub Actions secrets `APPLE_CERTIFICATE_P12`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_IDENTITY`) before bottling — embeds TeamIdentifier so macOS can persist notification permissions for the bundle ID
+
 ## [1.1.3] - 2026-04-02
 
 ### Fixed
