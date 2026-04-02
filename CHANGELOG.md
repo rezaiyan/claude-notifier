@@ -6,6 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-04-02
+
+### Fixed
+- Switch `launchctl bootstrap` to `launchctl load -w` in `post_install`; the legacy Mach IPC path used by `load` is reachable from within Homebrew's sandbox, whereas XPC (used by `bootstrap`) is blocked
+
 ## [1.0.7] - 2026-04-02
 
 ### Changed

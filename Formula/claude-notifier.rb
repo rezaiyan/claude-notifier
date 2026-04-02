@@ -60,7 +60,6 @@ class ClaudeNotifier < Formula
     # Homebrew's sandbox blocks writes to ~/.claude/settings.json from post_install.
     # Workaround: bootstrap a one-shot LaunchAgent so launchd spawns claude-notifier-setup
     # outside the sandbox. The setup script cleans up the plist after it runs.
-    uid        = `id -u`.chomp
     home       = `echo $HOME`.chomp
     plist_label = "com.rezaiyan.claude-notifier-setup"
     plist_path  = etc/"#{plist_label}.plist"
@@ -89,7 +88,9 @@ class ClaudeNotifier < Formula
       </plist>
     XML
 
-    system "launchctl", "bootstrap", "gui/#{uid}", plist_path.to_s
+    # launchctl load uses the legacy Mach IPC path, which is reachable from
+    # within Homebrew's sandbox (unlike bootstrap, which requires XPC to gui/UID).
+    system "launchctl", "load", "-w", plist_path.to_s
   rescue StandardError
     nil
   end
