@@ -2,12 +2,16 @@
 """
 Stop hook: fires a desktop notification when Claude finishes or is waiting.
 
-macOS:  ClaudeNotifier.app (bundled, falls back to osascript)
+macOS:  osascript via System Events (primary); ClaudeNotifier.app on macOS < 26
+        where it can obtain UNUserNotificationCenter permission automatically.
+        On macOS 26+ (Tahoe) the OS hard-denies UNUserNotificationCenter for
+        ad-hoc signed apps, so osascript is used directly — no setup required.
 Linux:  notify-send | focus detection via xdotool (X11 only)
 """
 import argparse
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -74,31 +78,19 @@ def _macos_is_terminal_focused() -> bool:
     return result.stdout.strip() in known
 
 
-def _macos_notify(title: str, message: str, subtitle: str) -> None:
-    # Prefer the bundled app (installed by Homebrew alongside this script).
-    # Path: {cellar_prefix}/libexec/claude-notifier.py  →  ../ClaudeNotifier.app
-    bundled = (
-        Path(__file__).resolve().parent.parent
-        / "ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
-    )
-    if bundled.exists():
-        try:
-            # Fire-and-forget: the app manages its own run loop and exits when done.
-            subprocess.Popen(
-                [str(bundled), "-title", title, "-message", message, "-subtitle", subtitle],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            return
-        except OSError:
-            pass
+def _macos_major_version() -> int:
+    try:
+        return int(platform.mac_ver()[0].split(".")[0])
+    except (ValueError, IndexError):
+        return 0
 
-    # Fallback: osascript — manual/non-Homebrew installs only.
-    # macOS 26 (Tahoe) broke top-level `display notification` (error -2740).
-    # Prefer the System Events delegation form; fall back to bare display notification
-    # for older macOS where System Events doesn't support that syntax.
+
+def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
+    """Deliver via osascript — works on all macOS versions, no permission needed."""
     safe = {k: v.replace('"', '\\"') for k, v in
             {"title": title, "message": message, "subtitle": subtitle}.items()}
+    # System Events delegation form works on macOS 26 (Tahoe); bare form is the
+    # fallback for older macOS where System Events doesn't support that syntax.
     result = subprocess.run(
         [
             "osascript", "-e",
@@ -120,6 +112,34 @@ def _macos_notify(title: str, message: str, subtitle: str) -> None:
             ],
             capture_output=True,
         )
+
+
+def _macos_notify(title: str, message: str, subtitle: str) -> None:
+    # On macOS 26+ (Tahoe) the OS hard-denies UNUserNotificationCenter for
+    # ad-hoc signed apps with no user-visible prompt — use osascript directly.
+    if _macos_major_version() >= 26:
+        _macos_osascript_notify(title, message, subtitle)
+        return
+
+    # On older macOS, prefer the bundled ClaudeNotifier.app which delivers via
+    # UNUserNotificationCenter and appears as "Claude Notifier" in Settings.
+    # Path: {cellar_prefix}/libexec/claude-notifier.py  →  ../ClaudeNotifier.app
+    bundled = (
+        Path(__file__).resolve().parent.parent
+        / "ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
+    )
+    if bundled.exists():
+        try:
+            subprocess.Popen(
+                [str(bundled), "-title", title, "-message", message, "-subtitle", subtitle],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return
+        except OSError:
+            pass
+
+    _macos_osascript_notify(title, message, subtitle)
 
 
 # ── Linux ─────────────────────────────────────────────────────────────────────

@@ -82,6 +82,16 @@ fire_notification() {
     done
 }
 
+fire_osascript_notification() {
+    osascript -e \
+        'tell application "System Events" to display notification "Delivery works ✓" with title "claude-notifier smoke test" subtitle "osascript path"' \
+        2>/dev/null && return 0
+    # bare fallback for older macOS
+    osascript -e \
+        'display notification "Delivery works ✓" with title "claude-notifier smoke test" sound name "Glass"' \
+        2>/dev/null
+}
+
 # ═════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}claude-notifier smoke test  v${VERSION}  [${MODE}]${NC}"
 echo    "────────────────────────────────────────"
@@ -152,25 +162,36 @@ else
     warn "Not yet registered — expected on a fresh install"
 fi
 
-# ── 6. Fire notification ──────────────────────────────────────────────────────
+# ── 6. Notification delivery ──────────────────────────────────────────────────
 header "6. Notification delivery"
-if [[ ! -x "$NOTIFIER_BIN" ]]; then
-    fail "Binary not executable: $NOTIFIER_BIN"; exit 1
-fi
-info "Launching ClaudeNotifier — watch for a permission dialog or notification…"
-fire_notification "$NOTIFIER_BIN"
+MACOS_MAJOR=$(sw_vers -productVersion | cut -d. -f1)
 
-if ncprefs_registered; then
-    pass "Registered in com.apple.ncprefs after launch"
+if (( MACOS_MAJOR >= 26 )); then
+    info "macOS ${MACOS_MAJOR} detected — using osascript path (ClaudeNotifier.app hard-denied on Tahoe for ad-hoc signed binaries)"
+    fire_osascript_notification
+    sleep 1
+    if ask "Did you see a notification?"; then
+        pass "osascript delivery confirmed"
+    else
+        fail "No notification seen — check System Events automation permission"
+    fi
 else
-    warn "Still not in com.apple.ncprefs — may need a second launch after granting permission"
-fi
-
-if ask "Did you see a notification or a 'Allow Notifications?' dialog?"; then
-    pass "Visual delivery confirmed"
-else
-    fail "No notification or dialog seen"
-    warn "Check: System Settings → Notifications → Claude Notifier"
+    info "macOS ${MACOS_MAJOR} — launching ClaudeNotifier.app…"
+    if [[ ! -x "$NOTIFIER_BIN" ]]; then
+        fail "Binary not executable: $NOTIFIER_BIN"; exit 1
+    fi
+    fire_notification "$NOTIFIER_BIN"
+    if ncprefs_registered; then
+        pass "Registered in com.apple.ncprefs after launch"
+    else
+        warn "Still not in com.apple.ncprefs — may need a second launch after granting permission"
+    fi
+    if ask "Did you see a notification or a 'Allow Notifications?' dialog?"; then
+        pass "Visual delivery confirmed"
+    else
+        fail "No notification or dialog seen"
+        warn "Check: System Settings → Notifications → Claude Notifier"
+    fi
 fi
 
 # ── 7. Hook round-trip ────────────────────────────────────────────────────────

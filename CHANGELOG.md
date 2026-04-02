@@ -6,6 +6,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-04-02
+
+### Fixed
+- macOS 26 (Tahoe) hard-denies `UNUserNotificationCenter` for ad-hoc signed apps with no user-visible prompt (`UNErrorDomain Code=1`). `claude-notifier.py` now detects macOS 26+ via `platform.mac_ver()` and uses `osascript` via System Events as the primary notification path — zero setup required. ClaudeNotifier.app is still used on macOS 25 and earlier where `UNUserNotificationCenter` works with proper signing
+- `setActivationPolicy(.prohibited)` was called before `requestAuthorization` in `main.swift`, which had the same effect as `LSUIElement=true`. Now checks `getNotificationSettings` first: hides from Dock immediately if permission already determined, stays visible if `notDetermined` so the OS can show the prompt (for future use with a Developer ID cert)
+- Smoke test now detects macOS version and tests the correct notification path per OS
+
 ## [1.1.7] - 2026-04-02
 
 ### Fixed
