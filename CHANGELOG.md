@@ -6,6 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-04-02
+
+### Fixed
+- Remove `LSUIElement = true` from `Info.plist` — macOS 26 (Tahoe) silently skips the notification permission dialog for Info.plist-declared background agents; removing it lets macOS treat the app as a regular app and show the prompt automatically on first run. Runtime invisibility is preserved by `NSApp.setActivationPolicy(.prohibited)` in code (same behaviour as before, different classification at OS level)
+
 ## [1.1.5] - 2026-04-02
 
 ### Fixed
