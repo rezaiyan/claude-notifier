@@ -6,6 +6,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-04-02
+
+### Fixed
+- Removed Developer ID re-signing step from bottles workflow — the `APPLE_IDENTITY` secret held an Apple Development cert (device-only, Gatekeeper-rejected) instead of a Developer ID Application cert, preventing `UNUserNotificationCenter` from registering the app. Homebrew bottles now ship with the formula's existing ad-hoc signature (`codesign --sign "-"`), which is sufficient since Homebrew strips the quarantine bit on install
+- Formula caveats now say "after install **or upgrade**" to prompt users to re-run `claude-notifier-setup` so stale hooks are cleaned up
+
 ## [1.1.6] - 2026-04-02
 
 ### Fixed

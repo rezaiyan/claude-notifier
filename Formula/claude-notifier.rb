@@ -66,7 +66,7 @@ class ClaudeNotifier < Formula
 
   def caveats
     <<~EOS
-      Run once to activate:
+      Run after install or upgrade to activate:
         claude-notifier-setup
 
       To uninstall cleanly:

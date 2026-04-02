@@ -37,30 +37,6 @@ jobs:
       - name: Install from source (build bottle)
         run: brew install --build-bottle rezaiyan/tap/claude-notifier
 
-      - name: Sign ClaudeNotifier.app with Developer ID
-        env:
-          CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
-        run: |
-          # Import Developer ID cert into a temporary keychain
-          echo "$CERTIFICATE_P12" | base64 --decode > /tmp/cert.p12
-          security create-keychain -p "ci-temp" ci.keychain
-          security default-keychain -s ci.keychain
-          security unlock-keychain -p "ci-temp" ci.keychain
-          security import /tmp/cert.p12 -k ci.keychain \
-            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: -s -k "ci-temp" ci.keychain
-          rm /tmp/cert.p12
-
-          # Re-sign the installed .app so TeamIdentifier is embedded —
-          # macOS keys notification permissions to (bundleID + TeamIdentifier).
-          APP="$(brew --prefix rezaiyan/tap/claude-notifier)/ClaudeNotifier.app"
-          codesign --force --deep --sign "$APPLE_IDENTITY" "$APP"
-          codesign --verify --deep "$APP"
-          echo "Signed: $APP"
-
       - name: Create bottle and rename to Homebrew's expected filename
         run: |
           TAG="${{ inputs.tag }}"
