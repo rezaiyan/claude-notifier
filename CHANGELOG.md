@@ -6,6 +6,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-04-02
+
+### Changed
+- Homebrew formula now attempts to register the hook automatically in `post_install`; `claude-notifier-setup` is only needed as a fallback if Homebrew's sandbox blocks the write
+- Caveats are dynamic: show a success message when the hook is already registered, or the setup instruction when it is not
+
 ## [1.0.5] - 2026-04-02
 
 ### Added
