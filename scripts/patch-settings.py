@@ -35,10 +35,18 @@ data.setdefault("hooks", {}).setdefault("Stop", [{}])
 data["hooks"]["Stop"][0].setdefault("hooks", [])
 hooks = data["hooks"]["Stop"][0]["hooks"]
 
-if not any(h.get("command") == guarded for h in hooks):
+stale = [h for h in hooks if "claude-notifier.py" in h.get("command", "") and h.get("command") != guarded]
+already_current = any(h.get("command") == guarded for h in hooks)
+
+if not stale and already_current:
+    print("[claude-notifier] Hook already registered.")
+else:
+    # Remove all claude-notifier hooks (handles path changes on version upgrades).
+    hooks[:] = [h for h in hooks if "claude-notifier.py" not in h.get("command", "")]
     hooks.append({"type": "command", "command": guarded})
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(data, indent=2) + "\n")
-    print(f"[claude-notifier] Registered hook in {settings_path}")
-else:
-    print("[claude-notifier] Hook already registered.")
+    if stale:
+        print(f"[claude-notifier] Updated hook in {settings_path} (removed {len(stale)} stale entry)")
+    else:
+        print(f"[claude-notifier] Registered hook in {settings_path}")

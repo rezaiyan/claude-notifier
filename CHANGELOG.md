@@ -6,6 +6,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-04-02
+
+### Fixed
+- `ClaudeNotifier.app` no longer exits before handing off the notification: removed early termination on `!granted` (macOS 26 silently denies LSUIElement agents on first run without showing a prompt, then registers them in `com.apple.ncprefs` on the next attempt) and added a `DispatchSemaphore` to block exit until `center.add(request)` callback fires
+- `claude-notifier-setup` (`patch-settings.py`) now removes hooks from previous version paths before inserting the current one — prevents duplicate hooks after a Homebrew upgrade
+- `unpatch-settings.py` now matches hooks by `claude-notifier.py` substring rather than exact path, so it correctly removes hooks installed by any prior version
+
 ## [1.1.4] - 2026-04-02
 
 ### Fixed

@@ -38,10 +38,11 @@ private class Delegate: NSObject, NSApplicationDelegate {
         let center = UNUserNotificationCenter.current()
 
         center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-            guard granted else {
-                DispatchQueue.main.async { NSApp.terminate(nil) }
-                return
-            }
+            // Do not exit on !granted: on macOS 26 (Tahoe), LSUIElement background
+            // agents may receive denied without showing the user a prompt on first
+            // run. Still attempting add() registers the app in com.apple.ncprefs so
+            // macOS can prompt the user on subsequent launches.
+            _ = granted  // suppress unused-variable warning
 
             let content         = UNMutableNotificationContent()
             content.title       = args.title
@@ -54,9 +55,12 @@ private class Delegate: NSObject, NSApplicationDelegate {
                 content: content,
                 trigger: nil
             )
-            center.add(request) { _ in
-                DispatchQueue.main.async { NSApp.terminate(nil) }
-            }
+            // Block this thread until the request is handed off (max 3 s) so the
+            // app doesn't exit before macOS records the delivery attempt.
+            let sema = DispatchSemaphore(value: 0)
+            center.add(request) { _ in sema.signal() }
+            _ = sema.wait(timeout: .now() + 3)
+            DispatchQueue.main.async { NSApp.terminate(nil) }
         }
     }
 }

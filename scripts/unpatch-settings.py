@@ -27,15 +27,13 @@ except json.JSONDecodeError:
     print("[claude-notifier] settings.json contains invalid JSON — skipping.")
     sys.exit(0)
 
-hook_command = f'python3 "{hook_path}"'
-guarded = f'[ -f "{hook_path}" ] && {hook_command} || true'
-
 removed = False
 for block in data.get("hooks", {}).get("Stop", []):
     before = len(block.get("hooks", []))
+    # Match any hook referencing claude-notifier.py regardless of version path.
     block["hooks"] = [
         h for h in block.get("hooks", [])
-        if h.get("command") not in (hook_command, guarded)
+        if "claude-notifier.py" not in h.get("command", "")
     ]
     if len(block["hooks"]) < before:
         removed = True
