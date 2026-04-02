@@ -6,6 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-04-02
+
+### Fixed
+- Release workflow: use `gh workflow run` dispatch instead of `workflow_call` to trigger bottles — avoids `contents: write` permission propagation issue with reusable workflows
+
 ## [1.1.2] - 2026-04-02
 
 ### Fixed

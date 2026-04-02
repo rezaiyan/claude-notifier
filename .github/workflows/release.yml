@@ -96,9 +96,16 @@ jobs:
           git push
 
   # ── Build and publish Homebrew bottles ────────────────────────────────────────
-  bottles:
-    needs: deploy-brew   # tap formula must be updated before we bottle it
-    uses: ./.github/workflows/bottles.yml
-    with:
-      tag: ${{ github.ref_name }}
-    secrets: inherit
+  trigger-bottles:
+    needs: deploy-brew
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch bottles workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run bottles.yml \
+            --repo rezaiyan/claude-notifier \
+            --field tag=${{ github.ref_name }}
