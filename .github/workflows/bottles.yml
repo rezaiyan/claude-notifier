@@ -28,8 +28,8 @@ jobs:
     steps:
       - uses: Homebrew/actions/setup-homebrew@master
 
-      - name: Tap this repo as the formula source
-        run: brew tap rezaiyan/tap https://github.com/rezaiyan/claude-notifier
+      - name: Tap the Homebrew tap repo
+        run: brew tap rezaiyan/tap https://github.com/rezaiyan/homebrew-tap
 
       - name: Install from source (build bottle)
         run: brew install --build-bottle rezaiyan/tap/claude-notifier
