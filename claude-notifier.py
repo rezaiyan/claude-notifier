@@ -2,16 +2,15 @@
 """
 Stop hook: fires a desktop notification when Claude finishes or is waiting.
 
-macOS:  osascript via System Events (primary); ClaudeNotifier.app on macOS < 26
-        where it can obtain UNUserNotificationCenter permission automatically.
-        On macOS 26+ (Tahoe) the OS hard-denies UNUserNotificationCenter for
-        ad-hoc signed apps, so osascript is used directly — no setup required.
+macOS:  ClaudeNotifier.app (primary) — delivers via UNUserNotificationCenter
+        and appears as "Claude Notifier" in System Settings → Notifications.
+        Requires Developer ID Application signing (Homebrew bottles are signed).
+        Falls back to osascript for non-Homebrew / local builds.
 Linux:  notify-send | focus detection via xdotool (X11 only)
 """
 import argparse
 import json
 import os
-import platform
 import re
 import subprocess
 import sys
@@ -78,13 +77,6 @@ def _macos_is_terminal_focused() -> bool:
     return result.stdout.strip() in known
 
 
-def _macos_major_version() -> int:
-    try:
-        return int(platform.mac_ver()[0].split(".")[0])
-    except (ValueError, IndexError):
-        return 0
-
-
 def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
     """Deliver via osascript — works on all macOS versions, no permission needed."""
     safe = {k: v.replace('"', '\\"') for k, v in
@@ -115,14 +107,10 @@ def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
 
 
 def _macos_notify(title: str, message: str, subtitle: str) -> None:
-    # On macOS 26+ (Tahoe) the OS hard-denies UNUserNotificationCenter for
-    # ad-hoc signed apps with no user-visible prompt — use osascript directly.
-    if _macos_major_version() >= 26:
-        _macos_osascript_notify(title, message, subtitle)
-        return
-
-    # On older macOS, prefer the bundled ClaudeNotifier.app which delivers via
+    # Prefer the bundled ClaudeNotifier.app which delivers via
     # UNUserNotificationCenter and appears as "Claude Notifier" in Settings.
+    # Homebrew bottles are signed with a Developer ID Application cert so
+    # macOS shows the permission dialog on first run and delivers as banners.
     # Path: {cellar_prefix}/libexec/claude-notifier.py  →  ../ClaudeNotifier.app
     bundled = (
         Path(__file__).resolve().parent.parent

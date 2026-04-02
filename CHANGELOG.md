@@ -6,6 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-04-02
+
+### Fixed
+- `claude-notifier.py` now uses `ClaudeNotifier.app` on all macOS versions (including macOS 26 / Tahoe). The macOS 26 osascript-only bypass was introduced for ad-hoc signed apps that were hard-denied by the OS; now that Homebrew bottles are signed with a Developer ID Application certificate (`TeamIdentifier=VFCFJC7Y5J`), `UNUserNotificationCenter` can prompt for permission and deliver notifications as proper banners. osascript is retained as a fallback for non-Homebrew / local-build installs where no Developer ID cert is present
+
 ## [1.1.9] - 2026-04-03
 
 ### Fixed
