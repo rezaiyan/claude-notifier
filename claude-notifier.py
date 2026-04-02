@@ -98,8 +98,7 @@ def _macos_is_terminal_focused() -> bool:
 
 
 def _macos_notify(title: str, message: str, subtitle: str) -> None:
-    app_name, bundle_id = _detect_terminal_macos()
-    activate_script = f"osascript -e 'tell application \"{app_name}\" to activate'"
+    _, bundle_id = _detect_terminal_macos()
 
     try:
         result = subprocess.run(
@@ -109,8 +108,8 @@ def _macos_notify(title: str, message: str, subtitle: str) -> None:
                 "-subtitle", subtitle,
                 "-message", message,
                 "-sound", "Glass",
+                "-sender", bundle_id,
                 "-activate", bundle_id,
-                "-execute", activate_script,
                 "-group", "claude-code",
             ],
             capture_output=True,
