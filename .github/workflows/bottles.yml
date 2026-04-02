@@ -95,16 +95,20 @@ jobs:
           if not bottle_files:
               raise SystemExit("No bottle JSON files found")
 
-          # Collect { bottle_tag: sha256 } from all JSON files
+          # Collect root_url and { bottle_tag: sha256 } from all JSON files
           bottles: dict[str, str] = {}
+          root_url: str = ""
           for f in bottle_files:
               data = json.loads(f.read_text())
               for _name, info in data.items():
+                  root_url = root_url or info["bottle"].get("root_url", "")
                   for tag, details in info["bottle"]["tags"].items():
                       bottles[tag] = details["sha256"]
 
-          # Build the stanza block
+          # Build the stanza block (root_url tells Homebrew where our bottles live)
           lines = ["  bottle do\n"]
+          if root_url:
+              lines.append(f'    root_url "{root_url}"\n')
           for tag, sha in sorted(bottles.items()):
               lines.append(
                   f'    sha256 cellar: :any_skip_relocation, {tag}: "{sha}"\n'
