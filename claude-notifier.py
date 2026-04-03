@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 
 
 WAITING_SIGNALS = [
