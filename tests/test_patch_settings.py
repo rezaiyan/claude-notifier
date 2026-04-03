@@ -1,5 +1,6 @@
 """Tests for scripts/patch-settings.py."""
 import json
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -8,7 +9,36 @@ import pytest
 
 from conftest import load_module
 
+REPO = Path(__file__).parent.parent
+PATCH_SETTINGS = REPO / "scripts" / "patch-settings.py"
+SYSTEM_PYTHON = "/usr/bin/python3"
+
 ps = load_module("patch_settings", "scripts/patch-settings.py")
+
+
+# ── Python 3.9 compatibility (system python3) ─────────────────────────────────
+
+@pytest.mark.skipif(
+    not Path(SYSTEM_PYTHON).exists(),
+    reason=f"{SYSTEM_PYTHON} not present",
+)
+def test_patch_settings_importable_on_system_python() -> None:
+    """patch-settings.py must import cleanly on the macOS system Python (3.9).
+
+    'str | None' union syntax requires Python 3.10+ unless
+    'from __future__ import annotations' is present.
+    """
+    result = subprocess.run(
+        [SYSTEM_PYTHON, "-c", f"import importlib.util; "
+         f"spec = importlib.util.spec_from_file_location('ps', '{PATCH_SETTINGS}'); "
+         f"mod = importlib.util.module_from_spec(spec); "
+         f"spec.loader.exec_module(mod)"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"patch-settings.py fails to import on {SYSTEM_PYTHON}:\n{result.stderr}"
+    )
 
 
 # ── _register_hook ────────────────────────────────────────────────────────────

@@ -4,6 +4,8 @@
 Usage: python3 patch-settings.py <absolute-path-to-claude-notifier.py>
        [--watcher <absolute-path-to-log-watcher.py>] [extra hook args...]
 """
+from __future__ import annotations
+
 import json
 import os
 import shutil
