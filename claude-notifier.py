@@ -10,11 +10,13 @@ Linux:  notify-send | focus detection via xdotool (X11 only)
 Run without arguments (interactive) to check setup status.
 """
 import argparse
+import fcntl
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 VERSION = "1.2.3"
@@ -39,6 +41,25 @@ KNOWN_TERMINALS_LINUX = {
 
 
 _SUBPROCESS_TIMEOUT = 3  # seconds — prevents hangs in focus detection
+_LOCK_PATH = Path(tempfile.gettempdir()) / "claude-notifier.lock"
+
+
+def _acquire_lock() -> "object | None":
+    """Grab an exclusive non-blocking file lock. Returns the open file or None if busy."""
+    try:
+        lf = open(_LOCK_PATH, "w")  # noqa: SIM115, WPS515
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return lf
+    except (BlockingIOError, PermissionError, OSError):
+        return None
+
+
+def _release_lock(lf: "object") -> None:
+    try:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
+        lf.close()  # type: ignore[attr-defined]
+    except OSError:
+        pass
 
 
 def extract_title(last_msg: str) -> str:
@@ -298,23 +319,40 @@ def main() -> None:
         print(json.dumps({}))
         return
 
-    last_msg = data.get("last_assistant_message", "")
-    project = Path.cwd().name
+    lock = _acquire_lock()
+    if lock is None:
+        # Another instance is already delivering a notification — skip duplicate.
+        print(json.dumps({}))
+        return
 
-    is_waiting = any(s in last_msg.lower() for s in WAITING_SIGNALS)
+    try:
+        last_msg = data.get("last_assistant_message", "")
+        project = Path.cwd().name
 
-    if is_waiting:
-        title = "Claude Code — Waiting"
-        message = extract_title(last_msg)
-        subtitle = f"{project}  ·  needs your input"
-    else:
-        title = "Claude Code — Done"
-        message = extract_title(last_msg)
-        subtitle = project
+        is_waiting = any(s in last_msg.lower() for s in WAITING_SIGNALS)
 
-    notify(title, message, subtitle)
+        if is_waiting:
+            title = "Claude Code — Waiting"
+            message = extract_title(last_msg)
+            subtitle = f"{project}  ·  needs your input"
+        else:
+            title = "Claude Code — Done"
+            message = extract_title(last_msg)
+            subtitle = project
+
+        try:
+            notify(title, message, subtitle)
+        except Exception:  # noqa: BLE001
+            pass  # delivery failure is non-fatal; hook must still exit cleanly
+    finally:
+        _release_lock(lock)
+
     print(json.dumps({}))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:  # noqa: BLE001
+        # Never let an unhandled exception crash the Claude Code hook runner.
+        sys.exit(0)
