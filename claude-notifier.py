@@ -139,26 +139,30 @@ def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
 def _macos_notify(title: str, message: str, subtitle: str) -> None:
     # Prefer the notarized ClaudeNotifier.app (UNUserNotificationCenter) on all
     # macOS versions — notarization is required for authorization to be granted.
-    # The app prints "ok" to stdout after the notification request is handed off
-    # to the system daemon.  We only trust delivery if we see that signal; in
-    # restricted subprocess contexts the app can exit 0 without delivering the
-    # notification (XPC context lost), so we fall through to osascript otherwise.
+    # Signal mechanism: the app creates a temp file (path passed via env var
+    # CLAUDE_NOTIFIER_SIGNAL_FILE) after successfully handing the request to the
+    # system daemon.  We must NOT redirect stdout/stderr — doing so replaces the
+    # inherited PTY with a pipe or /dev/null, which severs the window-server
+    # session and causes silent delivery failure even though the app exits 0.
+    # The Swift app writes nothing to stdout, so inheriting is safe.
     if _BUNDLED_APP_PATH.exists():
+        sig = Path(tempfile.mktemp(prefix="cn-ok-"))  # noqa: S306
         try:
             proc = subprocess.Popen(
                 [str(_BUNDLED_APP_PATH), "-title", title, "-message", message, "-subtitle", subtitle],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                env={**os.environ, "CLAUDE_NOTIFIER_SIGNAL_FILE": str(sig)},
             )
             try:
-                stdout, _ = proc.communicate(timeout=10)
-                if b"ok" in stdout:
-                    return
-                # No "ok" signal (or non-zero exit / XPC failure) — fall through.
+                proc.wait(timeout=10)
+                if sig.exists():
+                    return  # notification delivered
+                # No signal file — silent failure, fall through to osascript.
             except subprocess.TimeoutExpired:
                 proc.kill()
         except OSError:
             pass
+        finally:
+            sig.unlink(missing_ok=True)
 
     _macos_osascript_notify(title, message, subtitle)
 

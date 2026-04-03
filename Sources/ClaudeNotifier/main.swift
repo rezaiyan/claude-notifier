@@ -70,11 +70,12 @@ private class Delegate: NSObject, NSApplicationDelegate {
                 // doesn't exit before macOS records the delivery attempt.
                 let sema = DispatchSemaphore(value: 0)
                 center.add(request) { error in
-                    if error == nil {
-                        // Signal to the Python caller that the notification was
-                        // successfully handed off to the system daemon.
-                        print("ok")
-                        fflush(stdout)
+                    if error == nil,
+                       let sigPath = ProcessInfo.processInfo.environment["CLAUDE_NOTIFIER_SIGNAL_FILE"] {
+                        // Create signal file so the Python caller knows delivery
+                        // succeeded.  stdout is not captured (would sever the PTY
+                        // and break the window-server session), so a file is used.
+                        FileManager.default.createFile(atPath: sigPath, contents: Data())
                     }
                     sema.signal()
                 }

@@ -22,6 +22,9 @@
   <key>CFBundleShortVersionString</key>
   <string>1.0</string>
 
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
+
   <!-- Prefer alert style (persistent) over banner (auto-dismiss) -->
   <key>NSUserNotificationAlertStyle</key>
   <string>alert</string>

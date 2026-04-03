@@ -21,8 +21,10 @@ class ClaudeNotifier < Formula
     # Assemble .app bundle
     app_contents = prefix/"ClaudeNotifier.app/Contents"
     (app_contents/"MacOS").mkpath
+    (app_contents/"Resources").mkpath
     app_contents.install "Sources/ClaudeNotifier/Info.plist"
     (app_contents/"MacOS").install "ClaudeNotifier"
+    (app_contents/"Resources").install "Sources/ClaudeNotifier/AppIcon.icns"
 
     # Ad-hoc sign — no Team ID, no cert; safe for open-source distribution.
     # Homebrew-installed tools are not quarantined, so Gatekeeper is not an issue.

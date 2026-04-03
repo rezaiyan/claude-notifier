@@ -194,10 +194,10 @@ def test_offer_interactive_setup_no_answer(capsys) -> None:
     mock_run.assert_not_called()
 
 
-# ── _macos_notify ok-signal ───────────────────────────────────────────────────
+# ── _macos_notify signal-file ─────────────────────────────────────────────────
 
-def test_macos_notify_uses_osascript_when_app_exits_zero_without_ok(tmp_path: Path) -> None:
-    """ClaudeNotifier.app exit 0 without 'ok' stdout → osascript fallback fires."""
+def test_macos_notify_uses_osascript_when_no_signal_file(tmp_path: Path) -> None:
+    """App exits 0 but creates no signal file → osascript fallback fires."""
     fake_app = tmp_path / "ClaudeNotifier"
     fake_app.write_text("#!/bin/sh\nexit 0")
     fake_app.chmod(0o755)
@@ -211,22 +211,24 @@ def test_macos_notify_uses_osascript_when_app_exits_zero_without_ok(tmp_path: Pa
         result.returncode = 0
         return result
 
-    with patch.object(cn, "_BUNDLED_APP_PATH", fake_app), \
-         patch("subprocess.run", side_effect=fake_run), \
-         patch("subprocess.Popen") as mock_popen:
+    def fake_popen(args, **kwargs):
+        # Do NOT create the signal file — simulates silent delivery failure.
         proc = MagicMock()
         proc.wait.return_value = 0
-        proc.communicate.return_value = (b"", b"")   # no "ok"
-        mock_popen.return_value = proc
+        return proc
+
+    with patch.object(cn, "_BUNDLED_APP_PATH", fake_app), \
+         patch("subprocess.run", side_effect=fake_run), \
+         patch("subprocess.Popen", side_effect=fake_popen):
         cn._macos_notify("title", "msg", "sub")
 
-    assert osascript_calls, "osascript should fire when app gives no 'ok' signal"
+    assert osascript_calls, "osascript should fire when signal file is absent"
 
 
-def test_macos_notify_skips_osascript_when_app_signals_ok(tmp_path: Path) -> None:
-    """ClaudeNotifier.app stdout contains 'ok' → osascript NOT called."""
+def test_macos_notify_skips_osascript_when_signal_file_created(tmp_path: Path) -> None:
+    """App creates the signal file → notification delivered, osascript NOT called."""
     fake_app = tmp_path / "ClaudeNotifier"
-    fake_app.write_text("#!/bin/sh\necho ok; exit 0")
+    fake_app.write_text("#!/bin/sh\nexit 0")
     fake_app.chmod(0o755)
 
     osascript_calls: list = []
@@ -238,16 +240,21 @@ def test_macos_notify_skips_osascript_when_app_signals_ok(tmp_path: Path) -> Non
         result.returncode = 0
         return result
 
-    with patch.object(cn, "_BUNDLED_APP_PATH", fake_app), \
-         patch("subprocess.run", side_effect=fake_run), \
-         patch("subprocess.Popen") as mock_popen:
+    def fake_popen(args, **kwargs):
+        # Simulate the app creating the signal file on successful delivery.
+        sig = kwargs.get("env", {}).get("CLAUDE_NOTIFIER_SIGNAL_FILE")
+        if sig:
+            Path(sig).write_text("")
         proc = MagicMock()
         proc.wait.return_value = 0
-        proc.communicate.return_value = (b"ok\n", b"")
-        mock_popen.return_value = proc
+        return proc
+
+    with patch.object(cn, "_BUNDLED_APP_PATH", fake_app), \
+         patch("subprocess.run", side_effect=fake_run), \
+         patch("subprocess.Popen", side_effect=fake_popen):
         cn._macos_notify("title", "msg", "sub")
 
-    assert not osascript_calls, "osascript should NOT fire when app signals 'ok'"
+    assert not osascript_calls, "osascript should NOT fire when signal file is created"
 
 
 # ── stop_hook_active short-circuit ────────────────────────────────────────────
