@@ -172,13 +172,12 @@ check_signing "$APP"
 
 # ── 5. Notification delivery (end-to-end via installed hook) ──────────────────
 header "5. Notification delivery"
-info "Piping stop-hook JSON through the installed claude-notifier.py …"
-echo '{"last_assistant_message": "smoke test complete", "stop_hook_active": false}' \
-    | python3 "$HOOK_SCRIPT"
+info "Firing test notification via --test flag …"
+python3 "$HOOK_SCRIPT" --test
 sleep 2
 
 if ask "Did you see a notification?"; then
-    pass "End-to-end delivery confirmed"
+    pass "End-to-end delivery confirmed (--test)"
 else
     fail "No notification seen"
     if (( MACOS_MAJOR >= 26 )); then
@@ -188,6 +187,11 @@ else
         warn "Check: System Settings → Notifications → Claude Notifier"
     fi
 fi
+
+info "Piping stop-hook JSON through the installed claude-notifier.py …"
+echo '{"last_assistant_message": "smoke test complete", "stop_hook_active": false}' \
+    | python3 "$HOOK_SCRIPT"
+sleep 1
 
 # ── 6. Hook settings.json round-trip ─────────────────────────────────────────
 header "6. Hook settings.json (patch / unpatch)"

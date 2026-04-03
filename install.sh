@@ -66,6 +66,23 @@ patch_settings() {
   python3 "$(dirname "$0")/scripts/patch-settings.py" "$HOOK_DIR/$SCRIPT_NAME" "$@"
 }
 
+# ── Request notification permission (macOS only) ───────────────────────────────
+request_permission() {
+  if [[ "$OSTYPE" != "darwin"* ]]; then return; fi
+
+  # Look for the ClaudeNotifier.app relative to this script (manual install layout).
+  local app_bin
+  app_bin="$(cd "$(dirname "$0")" && pwd)/ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
+  if [[ ! -x "$app_bin" ]]; then return; fi
+
+  info "Requesting notification permission (a dialog may appear)…"
+  # Launch once — the app calls requestAuthorization and exits on its own (≤10 s).
+  "$app_bin" -title "Claude Notifier" -message "Notifications are enabled." \
+             -subtitle "Setup complete" &>/dev/null &
+  # Give macOS time to show the permission dialog before we print the success banner.
+  sleep 2
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 check_python3() {
   if ! command -v python3 &>/dev/null; then
@@ -98,6 +115,7 @@ main() {
   install_deps
   install_script
   patch_settings "$@"
+  request_permission
   print_success
 }
 

@@ -38,12 +38,20 @@ class ClaudeNotifier < Formula
     # ~/.claude/settings.json — unlike post_install which is sandboxed.
     (bin/"claude-notifier").write <<~SH
       #!/bin/bash
-      exec python3 "#{libexec}/claude-notifier.py"
+      exec python3 "#{libexec}/claude-notifier.py" "$@"
     SH
 
     (bin/"claude-notifier-setup").write <<~SH
       #!/bin/bash
       python3 "#{libexec}/patch-settings.py" "#{libexec}/claude-notifier.py" || exit 1
+      # Request notification permission so the dialog appears at install time,
+      # not silently inside a restricted hook subprocess.
+      APP_BIN="#{prefix}/ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
+      if [[ -x "$APP_BIN" ]]; then
+        "$APP_BIN" -title "Claude Notifier" -message "Notifications are enabled." \
+                   -subtitle "Setup complete" &>/dev/null &
+        sleep 2
+      fi
       BOLD="\\033[1m" GREEN="\\033[0;32m" CYAN="\\033[0;36m" YELLOW="\\033[1;33m" DIM="\\033[2m" NC="\\033[0m"
       echo
       echo -e "${BOLD}${GREEN}  ╭──────────────────────────────────────────────────────╮${NC}"

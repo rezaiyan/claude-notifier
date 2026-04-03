@@ -119,12 +119,18 @@ def _macos_notify(title: str, message: str, subtitle: str) -> None:
     )
     if bundled.exists():
         try:
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 [str(bundled), "-title", title, "-message", message, "-subtitle", subtitle],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            return
+            try:
+                if proc.wait(timeout=10) == 0:
+                    return
+                # Non-zero exit (e.g. 143 SIGTERM / XPC Connection Invalid in
+                # restricted hook context) — fall through to osascript.
+            except subprocess.TimeoutExpired:
+                proc.kill()
         except OSError:
             pass
 
@@ -210,6 +216,18 @@ def _check_setup() -> tuple[bool, str]:
     return False, ""
 
 
+def _check_managed_hooks_only() -> bool:
+    """Return True if allowManagedHooksOnly is set, which silently blocks user hooks."""
+    settings_path = Path.home() / ".claude" / "settings.json"
+    if not settings_path.exists():
+        return False
+    try:
+        data = json.loads(settings_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False
+    return bool(data.get("allowManagedHooksOnly", False))
+
+
 def show_status() -> None:
     GREEN  = "\033[0;32m"
     YELLOW = "\033[1;33m"
@@ -220,10 +238,17 @@ def show_status() -> None:
     NC     = "\033[0m"
 
     is_setup, hook_path = _check_setup()
+    managed_only = _check_managed_hooks_only()
     platform_tag = "macOS" if sys.platform == "darwin" else "Linux"
 
     print(f"\n{BOLD}claude-notifier{NC}  v{VERSION}  [{platform_tag}]")
     print(f"{DIM}Desktop notifications for Claude Code — done and waiting alerts{NC}\n")
+
+    if managed_only:
+        print(f"  {YELLOW}⚠{NC}  {BOLD}allowManagedHooksOnly{NC} is enabled in settings.json")
+        print("     User hooks are blocked by policy — notifications will not fire.")
+        print(f"     {DIM}Workaround: ask your admin to allow user hooks, or watch the")
+        print(f"     session log (~/.claude/logs/) for activity instead.{NC}\n")
 
     if is_setup:
         print(f"  {GREEN}✓{NC}  Hook registered")
@@ -232,7 +257,8 @@ def show_status() -> None:
         print("\n  Notifications fire when Claude finishes or needs your input:\n")
         print(f"    {CYAN}◆  Claude Code — Done{NC}     task completed")
         print(f"    {YELLOW}◆  Claude Code — Waiting{NC}  needs your input")
-        print(f"\n  {DIM}To remove:  claude-notifier-teardown{NC}")
+        print(f"\n  {DIM}Test delivery:  claude-notifier --test{NC}")
+        print(f"  {DIM}To remove:      claude-notifier-teardown{NC}")
     else:
         print(f"  {RED}✗{NC}  Hook not registered\n")
         print("  Run to activate:")
@@ -247,13 +273,18 @@ def show_status() -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--skip-if-focused", action="store_true")
+    parser.add_argument("--test", action="store_true")
+    args, _ = parser.parse_known_args()
+
+    if args.test:
+        notify("Claude Code — Test", "Notification delivery works ✓", "claude-notifier")
+        return
+
     if sys.stdin.isatty():
         show_status()
         return
-
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--skip-if-focused", action="store_true")
-    args, _ = parser.parse_known_args()
 
     try:
         data = json.load(sys.stdin)

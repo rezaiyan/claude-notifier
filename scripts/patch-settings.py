@@ -23,6 +23,13 @@ try:
     data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
     if not isinstance(data, dict):
         data = {}
+    if data.get("allowManagedHooksOnly"):
+        print(
+            "[claude-notifier] WARNING: allowManagedHooksOnly is enabled in settings.json.\n"
+            "  User hooks are blocked by policy — notifications will not fire even after setup.\n"
+            "  Ask your admin to allow user hooks, or watch the session log instead.",
+            file=sys.stderr,
+        )
 except json.JSONDecodeError:
     print(
         f"[claude-notifier] Warning: {settings_path} contains invalid JSON — creating backup and starting fresh.",
