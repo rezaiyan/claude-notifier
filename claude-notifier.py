@@ -19,7 +19,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-VERSION = "1.2.3"
+VERSION = "1.2.4"
 
 
 WAITING_SIGNALS = [
