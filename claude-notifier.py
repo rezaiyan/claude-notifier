@@ -2,21 +2,22 @@
 """
 Stop hook: fires a desktop notification when Claude finishes or is waiting.
 
-macOS:  osascript via System Events (macOS 26+ / Tahoe) — delivers banner
-        notifications with no extra setup required.
-        ClaudeNotifier.app via UNUserNotificationCenter (macOS 25 and earlier)
+macOS:  ClaudeNotifier.app via UNUserNotificationCenter (notarized Developer ID)
         — appears as "Claude Notifier" in System Settings → Notifications.
-        osascript bare form is kept as a final fallback.
+        osascript is kept as a fallback for non-Homebrew installs.
 Linux:  notify-send | focus detection via xdotool (X11 only)
+
+Run without arguments (interactive) to check setup status.
 """
 import argparse
 import json
 import os
-import platform
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+VERSION = "1.2.1"
 
 
 WAITING_SIGNALS = [
@@ -79,13 +80,6 @@ def _macos_is_terminal_focused() -> bool:
     return result.stdout.strip() in known
 
 
-def _macos_major_version() -> int:
-    try:
-        return int(platform.mac_ver()[0].split(".")[0])
-    except (ValueError, IndexError):
-        return 0
-
-
 def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
     """Deliver via osascript — works on all macOS versions, no permission needed."""
     safe = {k: v.replace('"', '\\"') for k, v in
@@ -116,14 +110,8 @@ def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
 
 
 def _macos_notify(title: str, message: str, subtitle: str) -> None:
-    # macOS 26+ (Tahoe): osascript via System Events delivers banner notifications
-    # with no setup required. UNUserNotificationCenter is hard-denied for
-    # non-notarized apps regardless of signing identity, so skip ClaudeNotifier.app.
-    if _macos_major_version() >= 26:
-        _macos_osascript_notify(title, message, subtitle)
-        return
-
-    # macOS 25 and earlier: prefer ClaudeNotifier.app (UNUserNotificationCenter).
+    # Prefer the notarized ClaudeNotifier.app (UNUserNotificationCenter) on all
+    # macOS versions — notarization is required for authorization to be granted.
     # Path: {cellar_prefix}/libexec/claude-notifier.py  →  ../ClaudeNotifier.app
     bundled = (
         Path(__file__).resolve().parent.parent
@@ -202,10 +190,67 @@ def notify(title: str, message: str, subtitle: str) -> None:
         _linux_notify(title, message, subtitle)
 
 
+# ── Interactive status ────────────────────────────────────────────────────────
+
+def _check_setup() -> tuple[bool, str]:
+    """Return (is_registered, hook_path_or_empty)."""
+    settings_path = Path.home() / ".claude" / "settings.json"
+    if not settings_path.exists():
+        return False, ""
+    try:
+        data = json.loads(settings_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False, ""
+    for group in data.get("hooks", {}).get("Stop", []):
+        for h in group.get("hooks", []):
+            cmd = h.get("command", "")
+            if "claude-notifier.py" in cmd:
+                m = re.search(r'"([^"]*claude-notifier\.py)"', cmd)
+                return True, m.group(1) if m else cmd
+    return False, ""
+
+
+def show_status() -> None:
+    GREEN  = "\033[0;32m"
+    YELLOW = "\033[1;33m"
+    RED    = "\033[0;31m"
+    BOLD   = "\033[1m"
+    CYAN   = "\033[0;36m"
+    DIM    = "\033[2m"
+    NC     = "\033[0m"
+
+    is_setup, hook_path = _check_setup()
+    platform_tag = "macOS" if sys.platform == "darwin" else "Linux"
+
+    print(f"\n{BOLD}claude-notifier{NC}  v{VERSION}  [{platform_tag}]")
+    print(f"{DIM}Desktop notifications for Claude Code — done and waiting alerts{NC}\n")
+
+    if is_setup:
+        print(f"  {GREEN}✓{NC}  Hook registered")
+        if hook_path:
+            print(f"     {DIM}{hook_path}{NC}")
+        print("\n  Notifications fire when Claude finishes or needs your input:\n")
+        print(f"    {CYAN}◆  Claude Code — Done{NC}     task completed")
+        print(f"    {YELLOW}◆  Claude Code — Waiting{NC}  needs your input")
+        print(f"\n  {DIM}To remove:  claude-notifier-teardown{NC}")
+    else:
+        print(f"  {RED}✗{NC}  Hook not registered\n")
+        print("  Run to activate:")
+        print(f"    {BOLD}claude-notifier-setup{NC}          (Homebrew install)")
+        print(f"    {BOLD}bash install.sh{NC}                (manual / git clone)")
+        print(f"\n  {DIM}After setup, Claude Code will notify you automatically.{NC}")
+
+    print()
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
 def main() -> None:
+    if sys.stdin.isatty():
+        show_status()
+        return
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--skip-if-focused", action="store_true")
     args, _ = parser.parse_known_args()

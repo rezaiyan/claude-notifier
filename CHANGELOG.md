@@ -6,6 +6,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `ClaudeNotifier.app` bottles are now notarized via `xcrun notarytool` and stapled before packaging — macOS 14+ (including macOS 26 / Tahoe) silently returns `granted = false` from `UNUserNotificationCenter.requestAuthorization` for apps that are signed but not notarized, so no permission prompt was ever shown and no notification was ever delivered
+- Removed the macOS 26–specific osascript bypass in `claude-notifier.py` (introduced in v1.2.1 as a workaround for the unnotarized state). Now that bottles are notarized, `ClaudeNotifier.app` is used on all macOS versions; osascript is retained as a fallback only for non-Homebrew installs where the binary is absent
+- `Formula/claude-notifier.rb`: restore the `claude-notifier` bin wrapper that was dropped during restructuring
+- `scripts/bump-version.sh`: update `VERSION` constant in `claude-notifier.py` as part of each release
+
 ## [1.2.1] - 2026-04-03
 
 ### Fixed

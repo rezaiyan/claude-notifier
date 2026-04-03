@@ -52,6 +52,21 @@ fi
 echo "$new" > VERSION
 info "Updated VERSION"
 
+# ── Update VERSION constant in claude-notifier.py ─────────────────────────────
+python3 - "$current" "$new" <<'PYEOF'
+import sys, pathlib, re
+old, new = sys.argv[1], sys.argv[2]
+p = pathlib.Path("claude-notifier.py")
+p.write_text(re.sub(
+    r'^VERSION = "[^"]*"',
+    f'VERSION = "{new}"',
+    p.read_text(),
+    count=1,
+    flags=re.MULTILINE,
+))
+PYEOF
+info "Updated VERSION constant in claude-notifier.py"
+
 # ── Update CHANGELOG.md ───────────────────────────────────────────────────────
 python3 - "$new" "$today" <<'PYEOF'
 import sys, pathlib
@@ -67,7 +82,7 @@ PYEOF
 info "Updated CHANGELOG.md"
 
 # ── Commit, tag, push ─────────────────────────────────────────────────────────
-git add VERSION CHANGELOG.md
+git add VERSION CHANGELOG.md claude-notifier.py
 git commit -m "chore: release v${new}"
 git tag "v${new}"
 git push

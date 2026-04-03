@@ -36,6 +36,11 @@ class ClaudeNotifier < Formula
 
     # Bin wrappers run in the user's shell (no sandbox), so they can write to
     # ~/.claude/settings.json — unlike post_install which is sandboxed.
+    (bin/"claude-notifier").write <<~SH
+      #!/bin/bash
+      exec python3 "#{libexec}/claude-notifier.py"
+    SH
+
     (bin/"claude-notifier-setup").write <<~SH
       #!/bin/bash
       python3 "#{libexec}/patch-settings.py" "#{libexec}/claude-notifier.py" || exit 1

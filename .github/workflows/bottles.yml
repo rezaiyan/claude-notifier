@@ -67,6 +67,23 @@ jobs:
           codesign --verify --deep "$APP"
           codesign -dv "$APP" 2>&1 | grep -E "Authority|TeamIdentifier"
 
+      - name: Notarize and staple ClaudeNotifier.app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP="$(brew --prefix rezaiyan/tap/claude-notifier)/ClaudeNotifier.app"
+          ditto -c -k --keepParent "$APP" /tmp/ClaudeNotifier.zip
+          xcrun notarytool submit /tmp/ClaudeNotifier.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+          spctl -a -vvv "$APP" 2>&1 | tee /dev/stderr | grep -q "accepted"
+          rm /tmp/ClaudeNotifier.zip
+
       - name: Create bottle and rename to Homebrew's expected filename
         run: |
           TAG="${{ inputs.tag }}"
