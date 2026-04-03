@@ -1,8 +1,9 @@
 """Tests for claude-notifier.py."""
 import json
+import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from conftest import load_module
 
@@ -153,6 +154,44 @@ def test_acquire_release_lock(tmp_path: Path) -> None:
         lf3 = cn._acquire_lock()
         assert lf3 is not None
         cn._release_lock(lf3)
+
+
+# ── stop_hook_active short-circuit ────────────────────────────────────────────
+
+# ── _offer_interactive_setup ──────────────────────────────────────────────────
+
+def test_offer_interactive_setup_success(capsys) -> None:
+    """Y answer runs setup command and does not print an error."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    with patch("subprocess.run", return_value=mock_result) as mock_run, \
+         patch("shutil.which", return_value="/usr/bin/claude-notifier-setup"), \
+         patch("builtins.input", return_value="y"):
+        cn._offer_interactive_setup(False, "", "", "")
+    mock_run.assert_called_once()
+    captured = capsys.readouterr()
+    assert "error" not in captured.err.lower()
+
+
+def test_offer_interactive_setup_failure_prints_error(capsys) -> None:
+    """When setup command exits non-zero, an error message is printed to stderr."""
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    with patch("subprocess.run", return_value=mock_result), \
+         patch("shutil.which", return_value="/usr/bin/claude-notifier-setup"), \
+         patch("builtins.input", return_value="y"):
+        cn._offer_interactive_setup(False, "", "", "")
+    captured = capsys.readouterr()
+    assert "error" in captured.err.lower() or "failed" in captured.err.lower()
+
+
+def test_offer_interactive_setup_no_answer(capsys) -> None:
+    """Typing n skips setup and prints instructions."""
+    with patch("subprocess.run") as mock_run, \
+         patch("shutil.which", return_value="/usr/bin/claude-notifier-setup"), \
+         patch("builtins.input", return_value="n"):
+        cn._offer_interactive_setup(False, "", "", "")
+    mock_run.assert_not_called()
 
 
 # ── stop_hook_active short-circuit ────────────────────────────────────────────

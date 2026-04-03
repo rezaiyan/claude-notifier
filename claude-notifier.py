@@ -296,7 +296,9 @@ def _offer_interactive_setup(managed_only: bool, BOLD: str, DIM: str, NC: str) -
 
     if answer in ("", "y", "yes"):
         print()
-        subprocess.run(run_args, check=False)
+        result = subprocess.run(run_args, check=False)
+        if result.returncode != 0:
+            print(f"[claude-notifier] Setup failed (exit {result.returncode})", file=sys.stderr)
     else:
         print(f"\n  {DIM}Run manually when ready:{NC}")
         if setup_cmd:
