@@ -181,10 +181,11 @@ if ask "Did you see a notification?"; then
     pass "End-to-end delivery confirmed"
 else
     fail "No notification seen"
-    warn "Check: System Settings → Notifications → Claude Notifier"
     if (( MACOS_MAJOR >= 26 )); then
-        warn "macOS 26: on first run ClaudeNotifier.app should prompt for permission"
-        warn "If no prompt appeared, verify app is Developer ID signed (not ad-hoc)"
+        warn "macOS 26: check that Terminal has Automation permission for System Events"
+        warn "System Settings → Privacy & Security → Automation → Terminal → System Events"
+    else
+        warn "Check: System Settings → Notifications → Claude Notifier"
     fi
 fi
 

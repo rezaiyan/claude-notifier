@@ -2,15 +2,17 @@
 """
 Stop hook: fires a desktop notification when Claude finishes or is waiting.
 
-macOS:  ClaudeNotifier.app (primary) — delivers via UNUserNotificationCenter
-        and appears as "Claude Notifier" in System Settings → Notifications.
-        Requires Developer ID Application signing (Homebrew bottles are signed).
-        Falls back to osascript for non-Homebrew / local builds.
+macOS:  osascript via System Events (macOS 26+ / Tahoe) — delivers banner
+        notifications with no extra setup required.
+        ClaudeNotifier.app via UNUserNotificationCenter (macOS 25 and earlier)
+        — appears as "Claude Notifier" in System Settings → Notifications.
+        osascript bare form is kept as a final fallback.
 Linux:  notify-send | focus detection via xdotool (X11 only)
 """
 import argparse
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -77,6 +79,13 @@ def _macos_is_terminal_focused() -> bool:
     return result.stdout.strip() in known
 
 
+def _macos_major_version() -> int:
+    try:
+        return int(platform.mac_ver()[0].split(".")[0])
+    except (ValueError, IndexError):
+        return 0
+
+
 def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
     """Deliver via osascript — works on all macOS versions, no permission needed."""
     safe = {k: v.replace('"', '\\"') for k, v in
@@ -107,10 +116,14 @@ def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
 
 
 def _macos_notify(title: str, message: str, subtitle: str) -> None:
-    # Prefer the bundled ClaudeNotifier.app which delivers via
-    # UNUserNotificationCenter and appears as "Claude Notifier" in Settings.
-    # Homebrew bottles are signed with a Developer ID Application cert so
-    # macOS shows the permission dialog on first run and delivers as banners.
+    # macOS 26+ (Tahoe): osascript via System Events delivers banner notifications
+    # with no setup required. UNUserNotificationCenter is hard-denied for
+    # non-notarized apps regardless of signing identity, so skip ClaudeNotifier.app.
+    if _macos_major_version() >= 26:
+        _macos_osascript_notify(title, message, subtitle)
+        return
+
+    # macOS 25 and earlier: prefer ClaudeNotifier.app (UNUserNotificationCenter).
     # Path: {cellar_prefix}/libexec/claude-notifier.py  →  ../ClaudeNotifier.app
     bundled = (
         Path(__file__).resolve().parent.parent

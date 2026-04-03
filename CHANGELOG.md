@@ -6,6 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-04-03
+
+### Fixed
+- Restored osascript-as-primary path on macOS 26+ (Tahoe): `tell application "System Events" to display notification` delivers banner notifications without any extra setup. `ClaudeNotifier.app` (v1.2.0) was silently swallowing notifications on macOS 26 because `UNUserNotificationCenter` hard-denies non-notarized apps regardless of signing identity, and the fire-and-forget `Popen` call had no fallback
+
 ## [1.2.0] - 2026-04-02
 
 ### Fixed
