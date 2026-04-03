@@ -69,7 +69,15 @@ private class Delegate: NSObject, NSApplicationDelegate {
                 // Block until the request is handed off (max 3 s) so the app
                 // doesn't exit before macOS records the delivery attempt.
                 let sema = DispatchSemaphore(value: 0)
-                center.add(request) { _ in sema.signal() }
+                center.add(request) { error in
+                    if error == nil {
+                        // Signal to the Python caller that the notification was
+                        // successfully handed off to the system daemon.
+                        print("ok")
+                        fflush(stdout)
+                    }
+                    sema.signal()
+                }
                 _ = sema.wait(timeout: .now() + 3)
                 DispatchQueue.main.async { NSApp.terminate(nil) }
             }

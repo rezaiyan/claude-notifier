@@ -43,6 +43,11 @@ KNOWN_TERMINALS_LINUX = {
 
 _SUBPROCESS_TIMEOUT = 3  # seconds — prevents hangs in focus detection
 _LOCK_PATH = Path(tempfile.gettempdir()) / "claude-notifier.lock"
+# Resolved at import time so tests can patch it.
+_BUNDLED_APP_PATH: Path = (
+    Path(__file__).resolve().parent.parent
+    / "ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
+)
 
 
 def _acquire_lock() -> "object | None":
@@ -134,23 +139,22 @@ def _macos_osascript_notify(title: str, message: str, subtitle: str) -> None:
 def _macos_notify(title: str, message: str, subtitle: str) -> None:
     # Prefer the notarized ClaudeNotifier.app (UNUserNotificationCenter) on all
     # macOS versions — notarization is required for authorization to be granted.
-    # Path: {cellar_prefix}/libexec/claude-notifier.py  →  ../ClaudeNotifier.app
-    bundled = (
-        Path(__file__).resolve().parent.parent
-        / "ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
-    )
-    if bundled.exists():
+    # The app prints "ok" to stdout after the notification request is handed off
+    # to the system daemon.  We only trust delivery if we see that signal; in
+    # restricted subprocess contexts the app can exit 0 without delivering the
+    # notification (XPC context lost), so we fall through to osascript otherwise.
+    if _BUNDLED_APP_PATH.exists():
         try:
             proc = subprocess.Popen(
-                [str(bundled), "-title", title, "-message", message, "-subtitle", subtitle],
-                stdout=subprocess.DEVNULL,
+                [str(_BUNDLED_APP_PATH), "-title", title, "-message", message, "-subtitle", subtitle],
+                stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
             try:
-                if proc.wait(timeout=10) == 0:
+                stdout, _ = proc.communicate(timeout=10)
+                if b"ok" in stdout:
                     return
-                # Non-zero exit (e.g. 143 SIGTERM / XPC Connection Invalid in
-                # restricted hook context) — fall through to osascript.
+                # No "ok" signal (or non-zero exit / XPC failure) — fall through.
             except subprocess.TimeoutExpired:
                 proc.kill()
         except OSError:

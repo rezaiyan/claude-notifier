@@ -194,6 +194,62 @@ def test_offer_interactive_setup_no_answer(capsys) -> None:
     mock_run.assert_not_called()
 
 
+# ── _macos_notify ok-signal ───────────────────────────────────────────────────
+
+def test_macos_notify_uses_osascript_when_app_exits_zero_without_ok(tmp_path: Path) -> None:
+    """ClaudeNotifier.app exit 0 without 'ok' stdout → osascript fallback fires."""
+    fake_app = tmp_path / "ClaudeNotifier"
+    fake_app.write_text("#!/bin/sh\nexit 0")
+    fake_app.chmod(0o755)
+
+    osascript_calls: list = []
+
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "osascript":
+            osascript_calls.append(cmd)
+        result = MagicMock()
+        result.returncode = 0
+        return result
+
+    with patch.object(cn, "_BUNDLED_APP_PATH", fake_app), \
+         patch("subprocess.run", side_effect=fake_run), \
+         patch("subprocess.Popen") as mock_popen:
+        proc = MagicMock()
+        proc.wait.return_value = 0
+        proc.communicate.return_value = (b"", b"")   # no "ok"
+        mock_popen.return_value = proc
+        cn._macos_notify("title", "msg", "sub")
+
+    assert osascript_calls, "osascript should fire when app gives no 'ok' signal"
+
+
+def test_macos_notify_skips_osascript_when_app_signals_ok(tmp_path: Path) -> None:
+    """ClaudeNotifier.app stdout contains 'ok' → osascript NOT called."""
+    fake_app = tmp_path / "ClaudeNotifier"
+    fake_app.write_text("#!/bin/sh\necho ok; exit 0")
+    fake_app.chmod(0o755)
+
+    osascript_calls: list = []
+
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "osascript":
+            osascript_calls.append(cmd)
+        result = MagicMock()
+        result.returncode = 0
+        return result
+
+    with patch.object(cn, "_BUNDLED_APP_PATH", fake_app), \
+         patch("subprocess.run", side_effect=fake_run), \
+         patch("subprocess.Popen") as mock_popen:
+        proc = MagicMock()
+        proc.wait.return_value = 0
+        proc.communicate.return_value = (b"ok\n", b"")
+        mock_popen.return_value = proc
+        cn._macos_notify("title", "msg", "sub")
+
+    assert not osascript_calls, "osascript should NOT fire when app signals 'ok'"
+
+
 # ── stop_hook_active short-circuit ────────────────────────────────────────────
 
 def test_stop_hook_active_outputs_empty_json(tmp_path: Path, capsys) -> None:
