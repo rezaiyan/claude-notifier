@@ -16,6 +16,7 @@ Supports **macOS** and **Linux**.
 **Homebrew (macOS)**
 ```bash
 brew install rezaiyan/tap/claude-notifier
+claude-notifier-setup
 ```
 
 **apt (Debian/Ubuntu)**
@@ -36,14 +37,32 @@ All install methods:
 2. Place `claude-notifier.py` in the appropriate location
 3. Register the `Stop` hook in `~/.claude/settings.json`
 
+## Managed Macs (allowManagedHooksOnly)
+
+Some enterprise environments set `allowManagedHooksOnly: true` in Claude Code's managed settings, which silently blocks all user-defined hooks. `claude-notifier-setup` detects this automatically and installs a **launchd session-log watcher** daemon instead — no hook required. Notifications work identically either way.
+
 ## Dependencies
 
-| Platform | Required | Optional |
-|---|---|---|
-| macOS | — (bundled `ClaudeNotifier.app`) | — |
-| Linux | `libnotify-bin` (notify-send) | `xdotool` (focus detection, X11 only) |
+| Platform | Required                        | Optional                              |
+| -------- | ------------------------------- | ------------------------------------- |
+| macOS    | — (bundled `ClaudeNotifier.app`) | —                                    |
+| Linux    | `libnotify-bin` (notify-send)   | `xdotool` (focus detection, X11 only) |
 
 On macOS, notifications are delivered by a tiny native app bundled with the formula. It is compiled at bottle-build time — end users download a pre-built bottle and never need Xcode.
+
+## Status
+
+Run `claude-notifier` (no arguments) to check whether the hook or daemon is active:
+
+```
+claude-notifier v1.2.6  [macOS]
+
+  ✓  Hook registered
+     /opt/homebrew/opt/claude-notifier/libexec/claude-notifier.py
+
+  Test delivery:  claude-notifier --test
+  To remove:      claude-notifier uninstall
+```
 
 ## Manual install
 
@@ -73,10 +92,7 @@ If you prefer not to use the installer:
 
 **Homebrew**
 ```bash
-# Remove the settings.json entry first (Homebrew has no uninstall hook)
-python3 $(brew --prefix)/opt/claude-notifier/libexec/unpatch-settings.py \
-        $(brew --prefix)/opt/claude-notifier/libexec/claude-notifier.py
-brew uninstall claude-notifier
+claude-notifier uninstall
 ```
 
 **apt**

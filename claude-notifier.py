@@ -14,6 +14,7 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -264,6 +265,47 @@ def _check_daemon() -> bool:
         return False
 
 
+def _offer_interactive_setup(managed_only: bool, BOLD: str, DIM: str, NC: str) -> None:
+    """Prompt the user to run setup now, then exec the right installer."""
+    setup_cmd = shutil.which("claude-notifier-setup")
+    install_sh = Path(__file__).resolve().parent.parent / "install.sh"
+    if not install_sh.exists():
+        # git-clone layout: install.sh sits next to the script itself
+        install_sh = Path(__file__).resolve().parent / "install.sh"
+
+    # Decide which command we'll run if the user says yes
+    if setup_cmd:
+        run_label = f"{BOLD}claude-notifier-setup{NC}"
+        run_args: list[str] = [setup_cmd]
+    elif install_sh.exists():
+        run_label = f"{BOLD}bash {install_sh}{NC}"
+        run_args = ["bash", str(install_sh)]
+    else:
+        # Nothing available — fall back to informational text
+        print("  Run to activate:")
+        print(f"    {BOLD}claude-notifier-setup{NC}          (Homebrew install)")
+        print(f"    {BOLD}bash install.sh{NC}                (manual / git clone)")
+        print(f"\n  {DIM}After setup, Claude Code will notify you automatically.{NC}")
+        return
+
+    try:
+        answer = input(f"  Set up now with {run_label}? [Y/n] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+
+    if answer in ("", "y", "yes"):
+        print()
+        subprocess.run(run_args, check=False)
+    else:
+        print(f"\n  {DIM}Run manually when ready:{NC}")
+        if setup_cmd:
+            print(f"    {BOLD}claude-notifier-setup{NC}          (Homebrew install)")
+        if install_sh.exists():
+            print(f"    {BOLD}bash {install_sh}{NC}  (manual / git clone)")
+        print(f"\n  {DIM}After setup, Claude Code will notify you automatically.{NC}")
+
+
 def show_status() -> None:
     GREEN  = "\033[0;32m"
     YELLOW = "\033[1;33m"
@@ -291,7 +333,7 @@ def show_status() -> None:
         print(f"    {CYAN}◆  Claude Code — Done{NC}     task completed")
         print(f"    {YELLOW}◆  Claude Code — Waiting{NC}  needs your input")
         print(f"\n  {DIM}Test delivery:  claude-notifier --test{NC}")
-        print(f"  {DIM}To remove:      claude-notifier-teardown{NC}")
+        print(f"  {DIM}To remove:      claude-notifier uninstall{NC}")
         active = True
 
     elif is_setup:
@@ -306,28 +348,100 @@ def show_status() -> None:
             print(f"    {CYAN}◆  Claude Code — Done{NC}     task completed")
             print(f"    {YELLOW}◆  Claude Code — Waiting{NC}  needs your input")
             print(f"\n  {DIM}Test delivery:  claude-notifier --test{NC}")
-            print(f"  {DIM}To remove:      claude-notifier-teardown{NC}")
+            print(f"  {DIM}To remove:      claude-notifier uninstall{NC}")
             active = True
 
     if not active and not is_setup:
         if managed_only:
             print(f"  {YELLOW}⚠{NC}  {BOLD}allowManagedHooksOnly{NC} is enabled in settings.json")
-            print("     User hooks are blocked by policy.")
-            print(f"     {DIM}Run claude-notifier-setup to install the log-watcher daemon instead.{NC}\n")
+            print("     User hooks are blocked by policy.\n")
         else:
             print(f"  {RED}✗{NC}  Not configured\n")
-        print("  Run to activate:")
-        print(f"    {BOLD}claude-notifier-setup{NC}          (Homebrew install)")
-        print(f"    {BOLD}bash install.sh{NC}                (manual / git clone)")
-        print(f"\n  {DIM}After setup, Claude Code will notify you automatically.{NC}")
+
+        _offer_interactive_setup(managed_only, BOLD, DIM, NC)
 
     print()
+
+
+# ── Uninstall ─────────────────────────────────────────────────────────────────
+
+def _do_uninstall() -> None:
+    """Remove hook + daemon, then uninstall the package."""
+    notifier_py = Path(__file__).resolve()
+
+    # ── 1. Remove hook from settings.json ────────────────────────────────────
+    settings_path = Path.home() / ".claude" / "settings.json"
+    if settings_path.exists():
+        try:
+            data = json.loads(settings_path.read_text())
+            if isinstance(data, dict):
+                removed = False
+                for block in data.get("hooks", {}).get("Stop", []):
+                    before = len(block.get("hooks", []))
+                    block["hooks"] = [
+                        h for h in block.get("hooks", [])
+                        if "claude-notifier.py" not in h.get("command", "")
+                    ]
+                    if len(block["hooks"]) < before:
+                        removed = True
+                if removed:
+                    hs = data.get("hooks", {})
+                    hs["Stop"] = [b for b in hs.get("Stop", []) if b.get("hooks")]
+                    if not hs.get("Stop"):
+                        hs.pop("Stop", None)
+                    settings_path.write_text(json.dumps(data, indent=2) + "\n")
+                    print(f"[claude-notifier] Removed hook from {settings_path}")
+                else:
+                    print("[claude-notifier] No hook entry found in settings.json.")
+        except (json.JSONDecodeError, OSError):
+            print("[claude-notifier] Could not read settings.json — skipping hook cleanup.", file=sys.stderr)
+
+    # ── 2. Unload and remove the launchd daemon (macOS only) ─────────────────
+    if sys.platform == "darwin":
+        daemon_label = "com.claude-notifier.log-watcher"
+        daemon_plist = Path.home() / "Library" / "LaunchAgents" / f"{daemon_label}.plist"
+        loaded = subprocess.run(
+            ["launchctl", "list", daemon_label], capture_output=True
+        ).returncode == 0
+        if loaded:
+            subprocess.run(
+                ["launchctl", "bootout", f"gui/{os.getuid()}/{daemon_label}"],
+                capture_output=True,
+            )
+            print("[claude-notifier] Stopped log-watcher daemon.")
+        if daemon_plist.exists():
+            daemon_plist.unlink()
+            print(f"[claude-notifier] Removed {daemon_plist}")
+
+    # ── 3. Remove files and package ──────────────────────────────────────────
+    path_str = str(notifier_py).lower()
+    is_homebrew = "cellar" in path_str or "homebrew" in path_str
+
+    if is_homebrew:
+        brew = shutil.which("brew")
+        if brew:
+            print("[claude-notifier] Running: brew uninstall claude-notifier")
+            subprocess.run([brew, "uninstall", "claude-notifier"], check=False)
+        else:
+            print("[claude-notifier] brew not found — remove the formula manually.", file=sys.stderr)
+    else:
+        hooks_dir = Path.home() / ".claude" / "hooks"
+        for name in ("claude-notifier.py", "log-watcher.py"):
+            script = hooks_dir / name
+            if script.exists():
+                script.unlink()
+                print(f"[claude-notifier] Removed {script}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
 def main() -> None:
+    # Handle `claude-notifier uninstall` before argparse so it works naturally.
+    if len(sys.argv) > 1 and sys.argv[1] == "uninstall":
+        _do_uninstall()
+        return
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--skip-if-focused", action="store_true")
     parser.add_argument("--test", action="store_true")

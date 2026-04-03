@@ -149,7 +149,12 @@ else
     pass "Compiled and ad-hoc signed"
     NOTIFIER_BIN="$APP/Contents/MacOS/ClaudeNotifier"
     PLIST="$APP/Contents/Info.plist"
-    HOOK_SCRIPT="$REPO_ROOT/claude-notifier.py"
+    # Mirror the Homebrew layout: script at prefix/libexec/, app at prefix/ClaudeNotifier.app.
+    # _macos_notify() resolves the app as Path(__file__).parent.parent / "ClaudeNotifier.app",
+    # so the script must be one directory below the app's parent — i.e. in libexec/.
+    mkdir -p "$WORK_DIR/libexec"
+    cp "$REPO_ROOT/claude-notifier.py" "$WORK_DIR/libexec/claude-notifier.py"
+    HOOK_SCRIPT="$WORK_DIR/libexec/claude-notifier.py"
     PATCH_SCRIPT="$REPO_ROOT/scripts/patch-settings.py"
     UNPATCH_SCRIPT="$REPO_ROOT/scripts/unpatch-settings.py"
 fi
@@ -212,6 +217,23 @@ COUNT_AFTER=$(grep -c "claude-notifier.py" "$SETTINGS" 2>/dev/null || echo 0)
 [[ "$COUNT_BEFORE" -eq "$COUNT_AFTER" ]] \
     && pass "Idempotent (no duplicate)" \
     || fail "Duplicate hook added ($COUNT_BEFORE → $COUNT_AFTER)"
+
+if [[ "$MODE" == "brew" ]]; then
+    info "Verifying hook uses stable opt path (not versioned Cellar) …"
+    HOOK_CMD=$(python3 -c "
+import json, sys
+data = json.load(open('$SETTINGS'))
+for g in data.get('hooks', {}).get('Stop', []):
+    for h in g.get('hooks', []):
+        if 'claude-notifier.py' in h.get('command', ''):
+            print(h['command']); sys.exit(0)
+" 2>/dev/null)
+    if echo "$HOOK_CMD" | grep -q "/Cellar/"; then
+        fail "Hook uses versioned Cellar path — will break after brew upgrade: $HOOK_CMD"
+    else
+        pass "Hook uses stable opt path (upgrade-safe)"
+    fi
+fi
 
 info "unpatch-settings.py …"
 python3 "$UNPATCH_SCRIPT" "$HOOK_SCRIPT"

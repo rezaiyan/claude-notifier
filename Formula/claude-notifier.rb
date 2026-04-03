@@ -39,13 +39,16 @@ class ClaudeNotifier < Formula
     # ~/.claude/settings.json — unlike post_install which is sandboxed.
     (bin/"claude-notifier").write <<~SH
       #!/bin/bash
-      exec python3 "#{libexec}/claude-notifier.py" "$@"
+      exec python3 "#{opt_prefix}/libexec/claude-notifier.py" "$@"
     SH
 
     (bin/"claude-notifier-setup").write <<~SH
       #!/bin/bash
-      python3 "#{libexec}/patch-settings.py" "#{libexec}/claude-notifier.py" \
-        --watcher "#{libexec}/log-watcher.py" || exit 1
+      # Pass the stable opt-prefix path so the registered hook survives brew upgrades.
+      # patch-settings.py itself runs from the versioned libexec (always current), but
+      # the hook path it writes uses the opt symlink, which brew updates on every upgrade.
+      python3 "#{libexec}/patch-settings.py" "#{opt_prefix}/libexec/claude-notifier.py" \
+        --watcher "#{opt_prefix}/libexec/log-watcher.py" || exit 1
       # Request notification permission so the dialog appears at install time,
       # not silently inside a restricted hook subprocess.
       APP_BIN="#{prefix}/ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
@@ -75,17 +78,20 @@ class ClaudeNotifier < Formula
 
     (bin/"claude-notifier-teardown").write <<~SH
       #!/bin/bash
-      exec python3 "#{libexec}/unpatch-settings.py" "#{libexec}/claude-notifier.py"
+      exec python3 "#{libexec}/unpatch-settings.py" "#{opt_prefix}/libexec/claude-notifier.py"
     SH
   end
 
   def caveats
     <<~EOS
-      Run after install or upgrade to activate:
+      Run after install to activate:
         claude-notifier-setup
 
+      To check status:
+        claude-notifier
+
       To uninstall cleanly:
-        claude-notifier-teardown && brew uninstall claude-notifier
+        claude-notifier uninstall
 
     EOS
   end
