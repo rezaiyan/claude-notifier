@@ -3,7 +3,9 @@ set -euo pipefail
 
 HOOK_DIR="$HOME/.claude/hooks"
 SCRIPT_NAME="claude-notifier.py"
+WATCHER_NAME="log-watcher.py"
 HOOK_PATH="$HOOK_DIR/$SCRIPT_NAME"
+WATCHER_PATH="$HOOK_DIR/$WATCHER_NAME"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info() { echo -e "${GREEN}[claude-notifier]${NC} $*"; }
@@ -15,6 +17,10 @@ remove_script() {
     info "Removed $HOOK_PATH"
   else
     warn "Script not found at $HOOK_PATH — skipping."
+  fi
+  if [[ -f "$WATCHER_PATH" ]]; then
+    rm "$WATCHER_PATH"
+    info "Removed $WATCHER_PATH"
   fi
 }
 

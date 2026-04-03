@@ -3,7 +3,9 @@ set -euo pipefail
 
 HOOK_DIR="$HOME/.claude/hooks"
 SCRIPT_NAME="claude-notifier.py"
+WATCHER_NAME="log-watcher.py"
 SCRIPT_SRC="$(cd "$(dirname "$0")" && pwd)/$SCRIPT_NAME"
+WATCHER_SRC="$(cd "$(dirname "$0")" && pwd)/scripts/$WATCHER_NAME"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
@@ -53,17 +55,27 @@ install_deps() {
   fi
 }
 
-# ── Copy script ───────────────────────────────────────────────────────────────
+# ── Copy scripts ──────────────────────────────────────────────────────────────
 install_script() {
   mkdir -p "$HOOK_DIR"
   cp "$SCRIPT_SRC" "$HOOK_DIR/$SCRIPT_NAME"
   chmod +x "$HOOK_DIR/$SCRIPT_NAME"
   info "Installed $SCRIPT_NAME → $HOOK_DIR/$SCRIPT_NAME"
+  if [[ -f "$WATCHER_SRC" ]]; then
+    cp "$WATCHER_SRC" "$HOOK_DIR/$WATCHER_NAME"
+    chmod +x "$HOOK_DIR/$WATCHER_NAME"
+  fi
 }
 
 # ── Patch settings.json ───────────────────────────────────────────────────────
 patch_settings() {
-  python3 "$(dirname "$0")/scripts/patch-settings.py" "$HOOK_DIR/$SCRIPT_NAME" "$@"
+  local watcher_arg=""
+  if [[ -f "$HOOK_DIR/$WATCHER_NAME" ]]; then
+    watcher_arg="--watcher $HOOK_DIR/$WATCHER_NAME"
+  fi
+  # shellcheck disable=SC2086
+  python3 "$(dirname "$0")/scripts/patch-settings.py" "$HOOK_DIR/$SCRIPT_NAME" \
+    $watcher_arg "$@"
 }
 
 # ── Request notification permission (macOS only) ───────────────────────────────

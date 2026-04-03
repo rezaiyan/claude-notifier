@@ -249,6 +249,21 @@ def _check_managed_hooks_only() -> bool:
     return bool(data.get("allowManagedHooksOnly", False))
 
 
+def _check_daemon() -> bool:
+    """Return True if the log-watcher launchd daemon is loaded (macOS only)."""
+    if sys.platform != "darwin":
+        return False
+    try:
+        result = subprocess.run(
+            ["launchctl", "list", "com.claude-notifier.log-watcher"],
+            capture_output=True,
+            timeout=3,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def show_status() -> None:
     GREEN  = "\033[0;32m"
     YELLOW = "\033[1;33m"
@@ -260,28 +275,47 @@ def show_status() -> None:
 
     is_setup, hook_path = _check_setup()
     managed_only = _check_managed_hooks_only()
+    daemon_running = _check_daemon()
     platform_tag = "macOS" if sys.platform == "darwin" else "Linux"
 
     print(f"\n{BOLD}claude-notifier{NC}  v{VERSION}  [{platform_tag}]")
     print(f"{DIM}Desktop notifications for Claude Code — done and waiting alerts{NC}\n")
 
-    if managed_only:
-        print(f"  {YELLOW}⚠{NC}  {BOLD}allowManagedHooksOnly{NC} is enabled in settings.json")
-        print("     User hooks are blocked by policy — notifications will not fire.")
-        print(f"     {DIM}Workaround: ask your admin to allow user hooks, or watch the")
-        print(f"     session log (~/.claude/logs/) for activity instead.{NC}\n")
+    active = False
 
-    if is_setup:
-        print(f"  {GREEN}✓{NC}  Hook registered")
-        if hook_path:
-            print(f"     {DIM}{hook_path}{NC}")
+    if daemon_running:
+        print(f"  {GREEN}✓{NC}  Log-watcher daemon active")
+        if managed_only:
+            print(f"     {DIM}Bypassing hook policy via session-log monitoring{NC}")
         print("\n  Notifications fire when Claude finishes or needs your input:\n")
         print(f"    {CYAN}◆  Claude Code — Done{NC}     task completed")
         print(f"    {YELLOW}◆  Claude Code — Waiting{NC}  needs your input")
         print(f"\n  {DIM}Test delivery:  claude-notifier --test{NC}")
         print(f"  {DIM}To remove:      claude-notifier-teardown{NC}")
-    else:
-        print(f"  {RED}✗{NC}  Hook not registered\n")
+        active = True
+
+    elif is_setup:
+        if managed_only:
+            print(f"  {YELLOW}⚠{NC}  {BOLD}allowManagedHooksOnly{NC} is enabled — hook will not fire")
+            print(f"     {DIM}Re-run claude-notifier-setup to install the log-watcher daemon.{NC}\n")
+        else:
+            print(f"  {GREEN}✓{NC}  Hook registered")
+            if hook_path:
+                print(f"     {DIM}{hook_path}{NC}")
+            print("\n  Notifications fire when Claude finishes or needs your input:\n")
+            print(f"    {CYAN}◆  Claude Code — Done{NC}     task completed")
+            print(f"    {YELLOW}◆  Claude Code — Waiting{NC}  needs your input")
+            print(f"\n  {DIM}Test delivery:  claude-notifier --test{NC}")
+            print(f"  {DIM}To remove:      claude-notifier-teardown{NC}")
+            active = True
+
+    if not active and not is_setup:
+        if managed_only:
+            print(f"  {YELLOW}⚠{NC}  {BOLD}allowManagedHooksOnly{NC} is enabled in settings.json")
+            print("     User hooks are blocked by policy.")
+            print(f"     {DIM}Run claude-notifier-setup to install the log-watcher daemon instead.{NC}\n")
+        else:
+            print(f"  {RED}✗{NC}  Not configured\n")
         print("  Run to activate:")
         print(f"    {BOLD}claude-notifier-setup{NC}          (Homebrew install)")
         print(f"    {BOLD}bash install.sh{NC}                (manual / git clone)")

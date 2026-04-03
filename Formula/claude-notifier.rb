@@ -33,6 +33,7 @@ class ClaudeNotifier < Formula
     libexec.install "claude-notifier.py"
     libexec.install "scripts/patch-settings.py"
     libexec.install "scripts/unpatch-settings.py"
+    libexec.install "scripts/log-watcher.py"
 
     # Bin wrappers run in the user's shell (no sandbox), so they can write to
     # ~/.claude/settings.json — unlike post_install which is sandboxed.
@@ -43,7 +44,8 @@ class ClaudeNotifier < Formula
 
     (bin/"claude-notifier-setup").write <<~SH
       #!/bin/bash
-      python3 "#{libexec}/patch-settings.py" "#{libexec}/claude-notifier.py" || exit 1
+      python3 "#{libexec}/patch-settings.py" "#{libexec}/claude-notifier.py" \
+        --watcher "#{libexec}/log-watcher.py" || exit 1
       # Request notification permission so the dialog appears at install time,
       # not silently inside a restricted hook subprocess.
       APP_BIN="#{prefix}/ClaudeNotifier.app/Contents/MacOS/ClaudeNotifier"
