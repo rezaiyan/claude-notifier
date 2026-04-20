@@ -13,36 +13,40 @@ Supports **macOS** and **Linux**.
 
 ## Install
 
-**Claude Code plugin (macOS + Linux, quickest)**
+### Claude Code plugin (macOS + Linux, quickest)
+
 ```bash
+# Add the marketplace (once)
 claude plugin marketplace add rezaiyan/claude-plugins
+
+# Install
 claude plugin install claude-notifier@rezaiyan
 ```
-Uses `osascript` on macOS (no native app, works everywhere). For the best macOS experience — first-class entry in System Settings → Notifications — use Homebrew instead.
 
-**Homebrew (macOS, recommended for best notifications)**
+Uses `osascript` on macOS — no native app required, works everywhere. For a first-class entry in System Settings → Notifications, use Homebrew instead.
+
+### Homebrew (macOS, best notification experience)
+
 ```bash
 brew install rezaiyan/tap/claude-notifier
 claude-notifier-setup
 ```
 
-**apt (Debian/Ubuntu)**
+Bundles the notarized `ClaudeNotifier.app` — notifications appear under "Claude Notifier" in System Settings.
+
+### apt (Debian/Ubuntu)
+
 ```bash
 sudo apt install claude-notifier
 ```
 
-**Manual**
+### Manual
+
 ```bash
 git clone https://github.com/rezaiyan/claude-notifier.git
 cd claude-notifier
-chmod +x install.sh
 ./install.sh
 ```
-
-All install methods:
-1. Install system dependencies
-2. Place `claude-notifier.py` in the appropriate location
-3. Register the `Stop` hook in `~/.claude/settings.json`
 
 ## Managed Macs (allowManagedHooksOnly)
 
