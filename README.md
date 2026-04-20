@@ -151,7 +151,7 @@ MIT
 
 ---
 
-## More Claude tools by rezaiyan
+## More Claude tools
 
 | Tool | Description |
 |------|-------------|
