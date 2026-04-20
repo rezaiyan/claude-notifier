@@ -1,0 +1,25 @@
+{
+  "name": "claude-notifier",
+  "version": "1.3.4",
+  "description": "Desktop notifications for Claude Code — notifies when Claude finishes or needs your input (macOS + Linux)",
+  "author": {
+    "name": "Ali Rezaiyan",
+    "url": "https://github.com/rezaiyan"
+  },
+  "homepage": "https://github.com/rezaiyan/claude-notifier",
+  "repository": "https://github.com/rezaiyan/claude-notifier",
+  "license": "MIT",
+  "keywords": ["notifications", "hooks", "stop", "macos", "linux"],
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/claude-notifier.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

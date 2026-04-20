@@ -13,7 +13,14 @@ Supports **macOS** and **Linux**.
 
 ## Install
 
-**Homebrew (macOS)**
+**Claude Code plugin (macOS + Linux, quickest)**
+```bash
+claude plugin marketplace add rezaiyan/claude-plugins
+claude plugin install claude-notifier@rezaiyan
+```
+Uses `osascript` on macOS (no native app, works everywhere). For the best macOS experience — first-class entry in System Settings → Notifications — use Homebrew instead.
+
+**Homebrew (macOS, recommended for best notifications)**
 ```bash
 brew install rezaiyan/tap/claude-notifier
 claude-notifier-setup
