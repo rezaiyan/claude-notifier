@@ -67,6 +67,17 @@ p.write_text(re.sub(
 PYEOF
 info "Updated VERSION constant in claude-notifier.py"
 
+# ── Update plugin.json ────────────────────────────────────────────────────────
+python3 - "$new" <<'PYEOF'
+import sys, json, pathlib
+new = sys.argv[1]
+p = pathlib.Path(".claude-plugin/plugin.json")
+data = json.loads(p.read_text())
+data["version"] = new
+p.write_text(json.dumps(data, indent=2) + "\n")
+PYEOF
+info "Updated .claude-plugin/plugin.json"
+
 # ── Update CHANGELOG.md ───────────────────────────────────────────────────────
 python3 - "$new" "$today" <<'PYEOF'
 import sys, pathlib
@@ -82,7 +93,7 @@ PYEOF
 info "Updated CHANGELOG.md"
 
 # ── Commit, tag, push ─────────────────────────────────────────────────────────
-git add VERSION CHANGELOG.md claude-notifier.py
+git add VERSION CHANGELOG.md claude-notifier.py .claude-plugin/plugin.json
 git commit -m "chore: release v${new}"
 git tag "v${new}"
 git push

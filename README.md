@@ -153,8 +153,8 @@ MIT
 
 ## More Claude tools
 
-| Tool | Description |
-|------|-------------|
-| [claude-token-guard](https://github.com/rezaiyan/claude-token-guard) | Cut token burn — blocks expensive agents, rewrites verbose Bash commands |
-| [skillfetch](https://github.com/rezaiyan/skillfetch) | Sync AI skill instructions from GitHub repos — security-scanned, diff-previewed |
-| [claude-session-manager](https://github.com/rezaiyan/claude-session-manager) | Desktop app for running multiple Claude Code sessions side by side |
+| Plugin | Description | Install |
+|--------|-------------|---------|
+| [claude-token-guard](https://github.com/rezaiyan/claude-token-guard) | Cut token burn — blocks expensive agents, rewrites verbose Bash commands | `claude plugin install claude-token-guard@rezaiyan` |
+| [skillfetch](https://github.com/rezaiyan/skillfetch) | Sync AI skill instructions from GitHub repos — security-scanned, diff-previewed | `claude plugin install skillfetch@rezaiyan` |
+| [claude-session-manager](https://github.com/rezaiyan/claude-session-manager) | Desktop app for running multiple Claude Code sessions side by side | — |
